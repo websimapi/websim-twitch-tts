@@ -518,13 +518,18 @@ function updateSoundList() {
   });
 }
 
-// Play user's custom sound
+// Play user's custom sound and return a promise that resolves when sound finishes
 function playUserSound(username) {
-  const soundData = ttsState.userSounds.get(username);
-  if (soundData) {
-    const audio = new Audio(soundData.url);
-    audio.play();
-  }
+  return new Promise((resolve) => {
+    const soundData = ttsState.userSounds.get(username);
+    if (soundData) {
+      const audio = new Audio(soundData.url);
+      audio.onended = () => resolve();
+      audio.play();
+    } else {
+      resolve();
+    }
+  });
 }
 
 // Delete user's custom sound
@@ -606,8 +611,29 @@ function processTTSQueue() {
     updateQueueDisplay(); // Update display when speech starts
   };
 
-  utterance.onerror = () => {
-    console.error('TTS Error during playback');
+  // Handle word boundaries for filtered words
+  if (ttsState.filterEnabled && ttsState.userSounds.has(utterance.username.toLowerCase())) {
+    let pausedForSound = false;
+    
+    utterance.onboundary = async (event) => {
+      if (event.name === 'word' && !pausedForSound) {
+        const word = event.target.text.substring(event.charIndex, event.charIndex + event.charLength);
+        if (containsBadWords(word)) {
+          pausedForSound = true;
+          tts.pause();
+          
+          await playUserSound(utterance.username.toLowerCase());
+          
+          // Resume TTS after sound plays
+          pausedForSound = false;
+          tts.resume();
+        }
+      }
+    };
+  }
+
+  utterance.onerror = (error) => {
+    console.error('TTS Error during playback:', error);
     resetTTS();
   };
 
