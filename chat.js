@@ -18,7 +18,8 @@ const ttsState = {
   enabled: localStorage.getItem('ttsEnabled') === 'true' || true,
   users: new Map(JSON.parse(localStorage.getItem('ttsUsers') || '[]')), 
   queue: [],
-  speaking: false
+  speaking: false,
+  currentUtterance: null
 };
 
 // Initialize TTS
@@ -195,6 +196,22 @@ function clearTTSQueue() {
 
 function updateQueueDisplay() {
   const queueDisplay = document.getElementById('tts-queue-display');
+  const currentDisplay = document.getElementById('tts-current-display');
+  
+  // Update Currently Reading section
+  if (ttsState.speaking && tts.speaking) {
+    currentDisplay.innerHTML = `
+      <div class="current-item">
+        <span class="current-icon">🔊</span>
+        <span class="current-text">${tts.speaking ? ttsState.currentUtterance.text : ''}</span>
+        <span class="current-username">${ttsState.currentUtterance.username}</span>
+      </div>
+    `;
+  } else {
+    currentDisplay.innerHTML = '<div class="empty-current">Nothing currently playing</div>';
+  }
+
+  // Update Queue section
   if (ttsState.queue.length === 0) {
     queueDisplay.innerHTML = '<div class="empty-queue">Queue is empty</div>';
     return;
@@ -203,6 +220,7 @@ function updateQueueDisplay() {
   queueDisplay.innerHTML = ttsState.queue.map((utterance, index) => `
     <div class="queue-item">
       <span class="queue-number">${index + 1}.</span>
+      <span class="queue-username">${utterance.username}</span>
       <span class="queue-text">${utterance.text}</span>
     </div>
   `).join('');
@@ -228,6 +246,7 @@ function queueTTSMessage(text, username) {
     utterance.rate = 1;
     utterance.pitch = 1;
     utterance.volume = 1;
+    utterance.username = username; // Store username with utterance
 
     utterance.onerror = (event) => {
       console.error('TTS Error:', event);
@@ -249,10 +268,12 @@ function processTTSQueue() {
 
   ttsState.speaking = true;
   const utterance = ttsState.queue.shift();
+  ttsState.currentUtterance = utterance; // Store current utterance
   updateQueueDisplay();
   
   utterance.onend = () => {
     ttsState.speaking = false;
+    ttsState.currentUtterance = null;
     processTTSQueue();
   };
 

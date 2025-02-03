@@ -273,9 +273,10 @@
     .queue-item {
       padding: 8px;
       border-bottom: 1px solid #f0f0f0;
-      display: flex;
-      align-items: center;
+      display: grid;
+      grid-template-columns: auto auto 1fr;
       gap: 8px;
+      align-items: start;
     }
 
     .queue-item:last-child {
@@ -304,6 +305,69 @@
       margin-top: 20px;
       padding-top: 20px;
       border-top: 1px solid #e0e0e0;
+    }
+
+    .current-section {
+      margin-bottom: 15px;
+    }
+
+    .current-display {
+      background: white;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      padding: 10px;
+      margin-bottom: 15px;
+    }
+
+    .current-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px;
+      background: #f8f9fa;
+      border-radius: 4px;
+    }
+
+    .current-icon {
+      color: #6441A4;
+      font-size: 1.2em;
+      animation: pulse 1s infinite;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 1; }
+      50% { opacity: 0.5; }
+      100% { opacity: 1; }
+    }
+
+    .current-text {
+      flex: 1;
+      color: #333;
+    }
+
+    .current-username {
+      color: #6441A4;
+      font-weight: bold;
+    }
+
+    .empty-current {
+      color: #666;
+      font-style: italic;
+      text-align: center;
+      padding: 10px;
+    }
+
+    .queue-container h5,
+    .current-section h5 {
+      margin: 0 0 8px 0;
+      color: #444;
+      font-size: 0.9em;
+    }
+
+    .queue-username {
+      color: #6441A4;
+      font-weight: bold;
+      margin-right: 8px;
     }
   </style>
 </head>
@@ -336,9 +400,18 @@
       <div class="tts-user-list" id="tts-users"></div>
 
       <div class="queue-section">
-        <h4>TTS Queue</h4>
-        <div id="tts-queue-display" class="queue-display">
-          <div class="empty-queue">Queue is empty</div>
+        <h4>TTS Status</h4>
+        <div class="current-section">
+          <h5>Currently Reading</h5>
+          <div id="tts-current-display" class="current-display">
+            <div class="empty-current">Nothing currently playing</div>
+          </div>
+        </div>
+        <div class="queue-container">
+          <h5>TTS Queue</h5>
+          <div id="tts-queue-display" class="queue-display">
+            <div class="empty-queue">Queue is empty</div>
+          </div>
         </div>
       </div>
     </div>
