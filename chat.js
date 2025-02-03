@@ -303,6 +303,13 @@ function disconnectFromChat() {
 function addChatMessage(username, message, tags) {
   const messageDiv = document.createElement('div');
   messageDiv.className = 'chat-message';
+  messageDiv.setAttribute('data-username', username);
+
+  // Add context menu event
+  messageDiv.addEventListener('contextmenu', function(e) {
+    e.preventDefault();
+    showContextMenu(e.pageX, e.pageY, username);
+  });
 
   // Add timestamp
   const timestamp = new Date().toLocaleTimeString();
@@ -330,6 +337,44 @@ function addChatMessage(username, message, tags) {
   while (chatBox.children.length > 500) {
     chatBox.removeChild(chatBox.firstChild);
   }
+}
+
+// Context Menu Functions
+function showContextMenu(x, y, username) {
+  // Remove any existing context menu
+  removeContextMenu();
+
+  const menu = document.createElement('div');
+  menu.id = 'context-menu';
+  menu.style.position = 'fixed';
+  menu.style.left = `${x}px`;
+  menu.style.top = `${y}px`;
+
+  // Add TTS option
+  const addTTSOption = document.createElement('div');
+  addTTSOption.className = 'context-menu-item';
+  addTTSOption.textContent = 'Add to TTS';
+  addTTSOption.onclick = () => {
+    const voices = window.speechSynthesis.getVoices();
+    if (voices.length) {
+      addTTSUser(username, voices[0].name);
+    }
+    removeContextMenu();
+  };
+  menu.appendChild(addTTSOption);
+
+  document.body.appendChild(menu);
+
+  // Close menu on click outside
+  document.addEventListener('click', removeContextMenu);
+}
+
+function removeContextMenu() {
+  const existingMenu = document.getElementById('context-menu');
+  if (existingMenu) {
+    existingMenu.remove();
+  }
+  document.removeEventListener('click', removeContextMenu);
 }
 
 // Handle Enter key in input
