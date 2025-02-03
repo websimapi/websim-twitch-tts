@@ -395,15 +395,27 @@ function updateTTSUsersList() {
     div.innerHTML = `
       <span>${username}</span>
       <div class="tts-settings">
-        ${voiceSelect}
-        ${speedControl}
-        ${pitchControl}
-        ${effectControls}
+        <div class="basic-settings">
+          ${voiceSelect}
+        </div>
+        <button class="toggle-advanced" onclick="toggleAdvancedSettings(this)">Show Advanced Settings</button>
+        <div class="advanced-settings">
+          ${speedControl}
+          ${pitchControl}
+          ${effectControls}
+        </div>
       </div>
       <button onclick="removeTTSUser('${username}')">×</button>
     `;
     ttsUsersList.appendChild(div);
   });
+}
+
+// Add this new function to handle toggling advanced settings
+function toggleAdvancedSettings(button) {
+  const advancedSettings = button.nextElementSibling;
+  const isShowing = advancedSettings.classList.toggle('show');
+  button.textContent = isShowing ? 'Hide Advanced Settings' : 'Show Advanced Settings';
 }
 
 function clearTTSQueue() {
