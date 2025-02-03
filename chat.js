@@ -29,14 +29,9 @@ const tts = window.speechSynthesis;
 
 // Break message into digestible chunks
 function splitMessageIntoChunks(text, maxLength = 180) {
-  // Only filter URLs if filter is enabled
+  // Skip if message contains URLs and filter is enabled
   if (ttsState.filterEnabled && /https?:\/\/[^\s]+/.test(text)) {
     return [];
-  }
-
-  // If filter is disabled and text is shorter than max, return as single chunk
-  if (!ttsState.filterEnabled && text.length <= maxLength) {
-    return [text];
   }
 
   // First split on punctuation
@@ -71,15 +66,6 @@ function splitMessageIntoChunks(text, maxLength = 180) {
   });
 
   if (currentChunk) chunks.push(currentChunk.trim());
-
-  // If no chunks were created (due to splitting issues),
-  // force split the text into maxLength chunks
-  if (chunks.length === 0) {
-    for (let i = 0; i < text.length; i += maxLength) {
-      chunks.push(text.slice(i, i + maxLength));
-    }
-  }
-
   return chunks.filter(chunk => chunk.length > 0);
 }
 
@@ -254,7 +240,7 @@ function updateQueueDisplay() {
 }
 
 function queueTTSMessage(text, username) {
-  if (!ttsState.enabled || !ttsState.users.has(username.toLowerCase()) || text.includes('!')) {
+  if (!ttsState.enabled || !ttsState.users.has(username.toLowerCase()) || text.startsWith('!')) {
     return;
   }
 
