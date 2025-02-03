@@ -66,7 +66,7 @@ const ttsState = {
   queue: [],
   speaking: false,
   currentUtterance: null,
-  userSounds: new Map(JSON.parse(localStorage.getItem('userSounds') || '[]')), // Store sound data
+  userSounds: new Map(JSON.parse(localStorage.getItem('userSounds') || '[]'))
 };
 
 // Initialize TTS
@@ -518,24 +518,21 @@ function updateSoundList() {
   });
 }
 
-// Play user's custom sound and return a promise that resolves when sound finishes
+// Play user's custom sound
 function playUserSound(username) {
-  return new Promise((resolve) => {
-    const soundData = ttsState.userSounds.get(username);
-    if (soundData) {
-      const audio = new Audio(soundData.url);
-      audio.onended = () => resolve();
-      audio.play();
-    } else {
-      resolve();
-    }
-  });
+  const soundData = ttsState.userSounds.get(username);
+  if (soundData) {
+    const audio = new Audio();
+    audio.src = soundData.data; 
+    audio.play().catch(error => {
+      console.error('Error playing sound:', error);
+    });
+  }
 }
 
 // Delete user's custom sound
 function deleteUserSound(username) {
   if (ttsState.userSounds.has(username)) {
-    URL.revokeObjectURL(ttsState.userSounds.get(username).url);
     ttsState.userSounds.delete(username);
     saveUserSounds();
     updateSoundList();
@@ -547,7 +544,7 @@ function saveUserSounds() {
   const serializedSounds = Array.from(ttsState.userSounds.entries()).map(([username, soundData]) => [
     username,
     {
-      url: soundData.url,
+      data: soundData.data, 
       name: soundData.name
     }
   ]);
@@ -571,18 +568,21 @@ soundUploadBtn.addEventListener('click', () => {
 
   // Remove old sound if exists
   if (ttsState.userSounds.has(username)) {
-    URL.revokeObjectURL(ttsState.userSounds.get(username).url);
+    ttsState.userSounds.delete(username);
   }
 
-  // Store new sound
-  const soundUrl = URL.createObjectURL(file);
-  ttsState.userSounds.set(username, {
-    url: soundUrl,
-    name: file.name
-  });
-
-  saveUserSounds();
-  updateSoundList();
+  // Convert file to base64
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    ttsState.userSounds.set(username, {
+      data: e.target.result,
+      name: file.name
+    });
+    saveUserSounds();
+    updateSoundList();
+  };
+  reader.readAsDataURL(file);
+  
   soundUpload.value = '';
 });
 
@@ -611,29 +611,8 @@ function processTTSQueue() {
     updateQueueDisplay(); // Update display when speech starts
   };
 
-  // Handle word boundaries for filtered words
-  if (ttsState.filterEnabled && ttsState.userSounds.has(utterance.username.toLowerCase())) {
-    let pausedForSound = false;
-    
-    utterance.onboundary = async (event) => {
-      if (event.name === 'word' && !pausedForSound) {
-        const word = event.target.text.substring(event.charIndex, event.charIndex + event.charLength);
-        if (containsBadWords(word)) {
-          pausedForSound = true;
-          tts.pause();
-          
-          await playUserSound(utterance.username.toLowerCase());
-          
-          // Resume TTS after sound plays
-          pausedForSound = false;
-          tts.resume();
-        }
-      }
-    };
-  }
-
-  utterance.onerror = (error) => {
-    console.error('TTS Error during playback:', error);
+  utterance.onerror = () => {
+    console.error('TTS Error during playback');
     resetTTS();
   };
 
