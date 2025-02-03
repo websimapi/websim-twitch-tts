@@ -16,10 +16,15 @@ const ttsUsersList = document.getElementById('tts-users');
 // TTS State
 const ttsState = {
   enabled: true,
-  users: new Map(), 
+  users: new Map(JSON.parse(localStorage.getItem('ttsUsers') || '[]')), 
   queue: [],
   speaking: false
 };
+
+// Save TTS users to localStorage
+function saveTTSUsers() {
+  localStorage.setItem('ttsUsers', JSON.stringify(Array.from(ttsState.users.entries())));
+}
 
 // Initialize TTS
 const tts = window.speechSynthesis;
@@ -62,17 +67,20 @@ function addTTSUser(username, voiceName) {
   if (!ttsState.users.has(username)) {
     ttsState.users.set(username, voiceName);
     updateTTSUsersList();
+    saveTTSUsers();
   }
 }
 
 function removeTTSUser(username) {
   ttsState.users.delete(username);
   updateTTSUsersList();
+  saveTTSUsers();
 }
 
 function updateUserVoice(username, voiceName) {
   if (ttsState.users.has(username)) {
     ttsState.users.set(username, voiceName);
+    saveTTSUsers();
   }
 }
 
