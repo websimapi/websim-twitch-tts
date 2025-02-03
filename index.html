@@ -254,6 +254,57 @@
       color: #6441A4;
       font-style: italic;
     }
+
+    .queue-display {
+      margin-top: 15px;
+      background: white;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      padding: 10px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .queue-display h4 {
+      margin: 0 0 10px 0;
+      color: #333;
+    }
+
+    .queue-item {
+      padding: 8px;
+      border-bottom: 1px solid #f0f0f0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .queue-item:last-child {
+      border-bottom: none;
+    }
+
+    .queue-number {
+      color: #6441A4;
+      font-weight: bold;
+      min-width: 24px;
+    }
+
+    .queue-text {
+      color: #333;
+      word-break: break-word;
+    }
+
+    .empty-queue {
+      color: #666;
+      font-style: italic;
+      text-align: center;
+      padding: 10px;
+    }
+
+    .queue-section {
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 1px solid #e0e0e0;
+    }
   </style>
 </head>
 <body>
@@ -283,6 +334,13 @@
       </form>
       
       <div class="tts-user-list" id="tts-users"></div>
+
+      <div class="queue-section">
+        <h4>TTS Queue</h4>
+        <div id="tts-queue-display" class="queue-display">
+          <div class="empty-queue">Queue is empty</div>
+        </div>
+      </div>
     </div>
 
     <div id="chat-box"></div>

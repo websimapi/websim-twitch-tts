@@ -63,11 +63,7 @@ function splitMessageIntoChunks(text, maxLength = 180) {
   });
 
   if (currentChunk) chunks.push(currentChunk.trim());
-  
-  // Extra filtering to ensure no empty chunks and proper length limits
-  return chunks
-    .filter(chunk => chunk.length > 0)
-    .map(chunk => chunk.slice(0, maxLength));
+  return chunks.filter(chunk => chunk.length > 0);
 }
 
 // Reset TTS if it gets stuck
@@ -194,6 +190,22 @@ function clearTTSQueue() {
     tts.cancel();
   }
   ttsState.speaking = false;
+  updateQueueDisplay();
+}
+
+function updateQueueDisplay() {
+  const queueDisplay = document.getElementById('tts-queue-display');
+  if (ttsState.queue.length === 0) {
+    queueDisplay.innerHTML = '<div class="empty-queue">Queue is empty</div>';
+    return;
+  }
+
+  queueDisplay.innerHTML = ttsState.queue.map((utterance, index) => `
+    <div class="queue-item">
+      <span class="queue-number">${index + 1}.</span>
+      <span class="queue-text">${utterance.text}</span>
+    </div>
+  `).join('');
 }
 
 function queueTTSMessage(text, username) {
@@ -217,13 +229,13 @@ function queueTTSMessage(text, username) {
     utterance.pitch = 1;
     utterance.volume = 1;
 
-    // Add error handling
     utterance.onerror = (event) => {
       console.error('TTS Error:', event);
       resetTTS();
     };
 
     ttsState.queue.push(utterance);
+    updateQueueDisplay();
   });
 
   processTTSQueue();
@@ -231,11 +243,13 @@ function queueTTSMessage(text, username) {
 
 function processTTSQueue() {
   if (!ttsState.enabled || ttsState.speaking || ttsState.queue.length === 0) {
+    updateQueueDisplay();
     return;
   }
 
   ttsState.speaking = true;
   const utterance = ttsState.queue.shift();
+  updateQueueDisplay();
   
   utterance.onend = () => {
     ttsState.speaking = false;
