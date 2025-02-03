@@ -154,6 +154,7 @@ function updateUserVoice(username, voiceName) {
   if (ttsState.users.has(username)) {
     ttsState.users.set(username, voiceName);
     saveTTSState();
+    updateTTSUsersList(); // This ensures the UI updates with the new voice
   }
 }
 
@@ -337,7 +338,7 @@ function addChatMessage(username, message, tags) {
   messageDiv.appendChild(usernameSpan);
 
   // Handle !gamblevoice command
-  if (message.toLowerCase() === '!gamblevoice') {
+  if (message.toLowerCase().startsWith('!gamblevoice')) {
     if (ttsState.users.has(username.toLowerCase())) {
       const voices = tts.getVoices();
       const currentVoice = ttsState.users.get(username.toLowerCase());
@@ -359,8 +360,14 @@ function addChatMessage(username, message, tags) {
       chatBox.appendChild(systemMessage);
       chatBox.scrollTop = chatBox.scrollHeight;
 
-      // Queue TTS notification
+      // Queue TTS notification about voice change
       queueTTSMessage(`${username} rolled for a new voice`, 'System');
+
+      // If there's additional text after !gamblevoice, read it with the new voice
+      const additionalText = message.slice(11).trim();
+      if (additionalText) {
+        queueTTSMessage(additionalText, username);
+      }
     }
     return; // Don't process further if it was a command
   }
