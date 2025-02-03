@@ -1,10 +1,11 @@
 <html>
 <head>
-  <title>TMI.js Helper</title>
+  <title>Twitch Chat Viewer</title>
   <style>
     body {
-      font-family: sans-serif;
-      margin: 20px;
+      font-family: system-ui, -apple-system, sans-serif;
+      margin: 0;
+      padding: 20px;
       background: #f0f0f0;
     }
 
@@ -17,120 +18,89 @@
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
 
-    h1 {
-      color: #6441A4;
-      text-align: center;
+    #connect-form {
+      margin-bottom: 20px;
     }
 
-    pre {
-      background: #f8f8f8;
+    #channel-input {
+      padding: 8px;
+      font-size: 16px;
+      border: 2px solid #6441A4;
+      border-radius: 4px;
+      margin-right: 10px;
+      width: 200px;
+    }
+
+    #connect-btn {
+      padding: 8px 16px;
+      font-size: 16px;
+      background: #6441A4;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    #connect-btn:hover {
+      background: #7454B3;
+    }
+
+    #chat-box {
+      height: 500px;
+      overflow-y: auto;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 10px;
+      background: #fff;
+    }
+
+    .chat-message {
+      padding: 4px 0;
+      word-wrap: break-word;
+    }
+
+    .username {
+      font-weight: bold;
+      color: #6441A4;
+    }
+
+    .timestamp {
+      color: #666;
+      font-size: 0.8em;
+      margin-right: 5px;
+    }
+
+    .status {
+      margin: 10px 0;
       padding: 10px;
       border-radius: 4px;
-      overflow-x: auto;
     }
 
-    .example {
-      margin: 20px 0;
+    .status.connected {
+      background: #d4edda;
+      color: #155724;
     }
 
-    .example h3 {
-      color: #6441A4;
-      margin-bottom: 10px;
+    .status.disconnected {
+      background: #f8d7da;
+      color: #721c24;
     }
   </style>
 </head>
 <body>
+  <div class="container">
+    <h1>Twitch Chat Viewer</h1>
+    
+    <div id="connect-form">
+      <input type="text" id="channel-input" placeholder="Enter channel name">
+      <button id="connect-btn">Connect</button>
+    </div>
 
-<div class="container">
-  <h1>TMI.js Helper</h1>
-
-  <div class="example">
-    <h3>Basic Connection</h3>
-    <pre>
-const client = new tmi.Client({
-  connection: {
-    secure: true,
-    reconnect: true
-  },
-  channels: [ 'channel_name' ]
-});
-
-client.connect();
-    </pre>
+    <div id="status" class="status"></div>
+    <div id="chat-box"></div>
   </div>
 
-  <div class="example">
-    <h3>With Authentication</h3>
-    <pre>
-const client = new tmi.Client({
-  identity: {
-    username: 'bot_username',
-    password: 'oauth:xxxxxxxxxxxxxx' 
-  },
-  channels: [ 'channel_name' ]
-});
-
-client.connect();
-    </pre>
-  </div>
-
-  <div class="example">
-    <h3>Handling Messages</h3>
-    <pre>
-client.on('message', (channel, tags, message, self) => {
-  if(self) return;
-
-  if(message.toLowerCase() === '!hello') {
-    client.say(channel, `@${tags.username}, hello!`);
-  }
-});
-    </pre>
-  </div>
-
-  <div class="example">
-    <h3>Handling Commands</h3>
-    <pre>
-client.on('message', (channel, tags, message, self) => {
-  if(self) return;
-
-  const args = message.slice(1).split(' ');
-  const command = args.shift().toLowerCase();
-
-  if(command === 'echo') {
-    client.say(channel, `@${tags.username}, you said: ${args.join(' ')}`);
-  }
-});
-    </pre>
-  </div>
-
-  <div class="example">
-    <h3>Useful Events</h3>
-    <pre>
-// When connected
-client.on('connected', (addr, port) => {
-  console.log(`Connected to ${addr}:${port}`);
-});
-
-// When channel joined 
-client.on('join', (channel, username, self) => {
-  if(self) {
-    console.log(`Joined ${channel}`);
-  }
-});
-
-// When user subscribes
-client.on('subscription', (channel, username, method, message, userstate) => {
-  client.say(channel, `Thanks for subscribing @${username}!`);
-});
-    </pre>
-  </div>
-
-</div>
-
-<script>
-// Code can be copy-pasted from these examples
-</script>
-
+  <script src="chat.js"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516" integrity="sha512-8DS7rgIrAmghBFwoOTujcf6D9rXvH8xm8JQ1Ja01h9QX8EzXldiszufYa4IFfKdLUKTTrnSFXLDkUEOTrZQ8Qg==" data-cf-beacon='{"version":"2024.11.0","token":"4c6229722a6346bc8eb5cb0e5eae5d41","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 </body>
 </html>
