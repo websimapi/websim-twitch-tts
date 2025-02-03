@@ -338,7 +338,7 @@ function addChatMessage(username, message, tags) {
   messageDiv.appendChild(usernameSpan);
 
   // Handle !gamblevoice command
-  if (message.toLowerCase().startsWith('!gamblevoice')) {
+  if (message.toLowerCase().startsWith('!gamblevoice') || message.toLowerCase().startsWith('!gv')) {
     if (ttsState.users.has(username.toLowerCase())) {
       const voices = tts.getVoices();
       const currentVoice = ttsState.users.get(username.toLowerCase());
@@ -363,8 +363,10 @@ function addChatMessage(username, message, tags) {
       // Queue TTS notification about voice change
       queueTTSMessage(`${username} rolled for a new voice`, 'System');
 
-      // If there's additional text after !gamblevoice, read it with the new voice
-      const additionalText = message.slice(11).trim();
+      // If there's additional text after the command, read it with the new voice
+      const additionalText = message.toLowerCase().startsWith('!gv') ? 
+        message.slice(3).trim() : 
+        message.slice(11).trim();
       if (additionalText) {
         queueTTSMessage(additionalText, username);
       }
