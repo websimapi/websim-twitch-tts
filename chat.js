@@ -25,7 +25,7 @@ const ttsState = {
 const tts = window.speechSynthesis;
 
 // Break message into digestible chunks
-function splitMessageIntoChunks(text, maxLength = 200) {
+function splitMessageIntoChunks(text, maxLength = 180) {
   // Skip if message contains URLs
   if (/https?:\/\/[^\s]+/.test(text)) {
     return [];
@@ -63,7 +63,11 @@ function splitMessageIntoChunks(text, maxLength = 200) {
   });
 
   if (currentChunk) chunks.push(currentChunk.trim());
-  return chunks.filter(chunk => chunk.length > 0);
+  
+  // Extra filtering to ensure no empty chunks and proper length limits
+  return chunks
+    .filter(chunk => chunk.length > 0)
+    .map(chunk => chunk.slice(0, maxLength));
 }
 
 // Reset TTS if it gets stuck
