@@ -1,6 +1,3 @@
-// Store whether a sound is currently playing
-let soundPlaying = false;
-
 // Store the TMI client globally
 let client = null;
 
@@ -80,7 +77,7 @@ try {
     const audio = new Audio();
     audio.src = soundData.base64;
     
-    // Wait for metadata to load to get duration
+    // Get duration after metadata is loaded
     audio.addEventListener('loadedmetadata', () => {
       ttsState.userSounds.set(username, {
         audio: audio,
@@ -88,6 +85,7 @@ try {
         base64: soundData.base64,
         duration: audio.duration
       });
+      updateSoundList();
     });
   });
 } catch (error) {
@@ -186,7 +184,6 @@ function resetTTS() {
     tts.cancel();
   }
   ttsState.speaking = false;
-  soundPlaying = false;
   processTTSQueue();
 }
 
@@ -558,7 +555,7 @@ function updateSoundList() {
     div.className = 'sound-item';
     div.innerHTML = `
       <span>${username}</span>
-      <span>${soundData.name}</span>
+      <span>${soundData.name} (${soundData.duration.toFixed(1)}s)</span>
       <button class="play-btn" onclick="playUserSound('${username}')">Test</button>
       <button class="delete-btn" onclick="deleteUserSound('${username}')">Delete</button>
     `;
@@ -568,21 +565,12 @@ function updateSoundList() {
 
 // Play user's custom sound
 function playUserSound(username) {
-  return new Promise((resolve) => {
-    const soundData = ttsState.userSounds.get(username);
-    if (soundData && soundData.audio) {
-      // Clone the audio to allow multiple simultaneous plays
-      const audioClone = soundData.audio.cloneNode();
-      audioClone.onended = () => {
-        soundPlaying = false;
-        resolve();
-      };
-      soundPlaying = true;
-      audioClone.play();
-    } else {
-      resolve();
-    }
-  });
+  const soundData = ttsState.userSounds.get(username);
+  if (soundData && soundData.audio) {
+    // Clone the audio to allow multiple simultaneous plays
+    const audioClone = soundData.audio.cloneNode();
+    audioClone.play();
+  }
 }
 
 // Delete user's custom sound
@@ -600,7 +588,8 @@ function saveUserSounds() {
     username,
     {
       name: soundData.name,
-      base64: soundData.base64
+      base64: soundData.base64,
+      duration: soundData.duration
     }
   ]);
   localStorage.setItem('userSounds', JSON.stringify(serializedSounds));
@@ -630,7 +619,7 @@ soundUploadBtn.addEventListener('click', () => {
     const audio = new Audio();
     audio.src = base64Data;
     
-    // Wait for audio metadata to load to get duration
+    // Get audio duration after metadata is loaded
     audio.addEventListener('loadedmetadata', () => {
       // Store the sound data
       ttsState.userSounds.set(username, {
@@ -653,8 +642,7 @@ soundUploadBtn.addEventListener('click', () => {
 updateSoundUserSelect();
 updateSoundList();
 
-// Modified processTTSQueue function
-async function processTTSQueue() {
+function processTTSQueue() {
   if (!ttsState.enabled || ttsState.speaking || ttsState.queue.length === 0) {
     updateQueueDisplay();
     return;
@@ -668,7 +656,7 @@ async function processTTSQueue() {
   // Check if this is a sound effect marker
   if (utterance.text === '__SOUND_EFFECT__') {
     if (ttsState.userSounds.has(utterance.username.toLowerCase())) {
-      await playUserSound(utterance.username.toLowerCase());
+      playUserSound(utterance.username.toLowerCase());
     }
     ttsState.speaking = false;
     ttsState.currentUtterance = null;
@@ -676,38 +664,25 @@ async function processTTSQueue() {
     return;
   }
   
-  // Create a Promise for the TTS completion
-  const ttsPromise = new Promise((resolve) => {
-    utterance.onend = () => {
-      ttsState.speaking = false;
-      ttsState.currentUtterance = null;
-      resolve();
-    };
-
-    utterance.onstart = () => {
-      updateQueueDisplay();
-    };
-
-    utterance.onerror = () => {
-      console.error('TTS Error during playback');
-      resetTTS();
-      resolve();
-    };
-
-    try {
-      tts.speak(utterance);
-    } catch (error) {
-      console.error('TTS Speak Error:', error);
-      resetTTS();
-      resolve();
-    }
-  });
-
-  // Wait for TTS to complete before continuing
-  await ttsPromise;
-  
-  // Only process next item if nothing is currently playing
-  if (!soundPlaying) {
+  utterance.onend = () => {
+    ttsState.speaking = false;
+    ttsState.currentUtterance = null;
     processTTSQueue();
+  };
+
+  utterance.onstart = () => {
+    updateQueueDisplay();
+  };
+
+  utterance.onerror = () => {
+    console.error('TTS Error during playback');
+    resetTTS();
+  };
+
+  try {
+    tts.speak(utterance);
+  } catch (error) {
+    console.error('TTS Speak Error:', error);
+    resetTTS();
   }
 }
