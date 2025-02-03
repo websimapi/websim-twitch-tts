@@ -16,13 +16,7 @@ const ttsUsersList = document.getElementById('tts-users');
 // TTS State with localStorage support
 const ttsState = {
   enabled: localStorage.getItem('ttsEnabled') === 'true' || true,
-  users: new Map(JSON.parse(localStorage.getItem('ttsUsers') || '[]').map(([username, settings]) => {
-    // Convert legacy format to new format with speed and pitch
-    if (typeof settings === 'string') {
-      return [username, { voice: settings, speed: 1, pitch: 1 }];
-    }
-    return [username, settings];
-  })), 
+  users: new Map(JSON.parse(localStorage.getItem('ttsUsers') || '[]')), 
   queue: [],
   speaking: false
 };
@@ -75,10 +69,20 @@ function splitMessageIntoChunks(text, maxLength = 200) {
 // Reset TTS if it gets stuck
 function resetTTS() {
   if (tts.speaking) {
-    tts.cancel();
+    try {
+      tts.cancel();
+    } catch (error) {
+      console.error('Error canceling TTS:', error);
+    }
   }
   ttsState.speaking = false;
-  processTTSQueue();
+  // Clear the entire queue when resetting to prevent backlog issues
+  ttsState.queue = [];
+  
+  // Small delay before trying to process queue again
+  setTimeout(() => {
+    processTTSQueue();
+  }, 100);
 }
 
 // Add automatic reset if TTS gets stuck
@@ -144,41 +148,9 @@ ttsAddForm.addEventListener('submit', (e) => {
 
 function addTTSUser(username, voiceName) {
   if (!ttsState.users.has(username)) {
-    ttsState.users.set(username, {
-      voice: voiceName,
-      speed: 1,
-      pitch: 1
-    });
+    ttsState.users.set(username, voiceName);
     saveTTSState();
     updateTTSUsersList();
-  }
-}
-
-function updateUserVoice(username, voiceName) {
-  if (ttsState.users.has(username)) {
-    const settings = ttsState.users.get(username);
-    settings.voice = voiceName;
-    ttsState.users.set(username, settings);
-    saveTTSState();
-    updateTTSUsersList();
-  }
-}
-
-function updateUserSpeed(username, speed) {
-  if (ttsState.users.has(username)) {
-    const settings = ttsState.users.get(username);
-    settings.speed = parseFloat(speed);
-    ttsState.users.set(username, settings);
-    saveTTSState();
-  }
-}
-
-function updateUserPitch(username, pitch) {
-  if (ttsState.users.has(username)) {
-    const settings = ttsState.users.get(username);
-    settings.pitch = parseFloat(pitch);
-    ttsState.users.set(username, settings);
-    saveTTSState();
   }
 }
 
@@ -188,9 +160,17 @@ function removeTTSUser(username) {
   updateTTSUsersList();
 }
 
+function updateUserVoice(username, voiceName) {
+  if (ttsState.users.has(username)) {
+    ttsState.users.set(username, voiceName);
+    saveTTSState();
+    updateTTSUsersList(); // This ensures the UI updates with the new voice
+  }
+}
+
 function updateTTSUsersList() {
   ttsUsersList.innerHTML = '';
-  ttsState.users.forEach((settings, username) => {
+  ttsState.users.forEach((voiceName, username) => {
     const div = document.createElement('div');
     div.className = 'tts-user';
     
@@ -198,66 +178,20 @@ function updateTTSUsersList() {
     const voiceSelect = `
       <select onchange="updateUserVoice('${username}', this.value)">
         ${voices.map(voice => 
-          `<option value="${voice.name}" ${voice.name === settings.voice ? 'selected' : ''}>
+          `<option value="${voice.name}" ${voice.name === voiceName ? 'selected' : ''}>
             ${voice.name} (${voice.lang})
           </option>`
         ).join('')}
       </select>
     `;
 
-    const advancedSettings = `
-      <div class="advanced-settings" style="display: none;">
-        <div class="tts-control">
-          <label>Speed:</label>
-          <input type="range" 
-                 min="0.5" 
-                 max="2" 
-                 step="0.1" 
-                 value="${settings.speed}"
-                 onchange="updateUserSpeed('${username}', this.value)"
-                 oninput="this.nextElementSibling.textContent = this.value">
-          <span>${settings.speed}</span>
-        </div>
-        <div class="tts-control">
-          <label>Pitch:</label>
-          <input type="range" 
-                 min="0.5" 
-                 max="2" 
-                 step="0.1" 
-                 value="${settings.pitch}"
-                 onchange="updateUserPitch('${username}', this.value)"
-                 oninput="this.nextElementSibling.textContent = this.value">
-          <span>${settings.pitch}</span>
-        </div>
-      </div>
-    `;
-
     div.innerHTML = `
       <span>${username}</span>
-      <div class="tts-settings">
-        ${voiceSelect}
-        <button class="toggle-advanced" onclick="toggleAdvancedSettings(this)">
-          <span class="toggle-icon">▼</span> Advanced
-        </button>
-        ${advancedSettings}
-      </div>
-      <button onclick="removeTTSUser('${username}')" class="remove-btn">×</button>
+      ${voiceSelect}
+      <button onclick="removeTTSUser('${username}')">×</button>
     `;
     ttsUsersList.appendChild(div);
   });
-}
-
-function toggleAdvancedSettings(button) {
-  const advancedSettings = button.nextElementSibling;
-  const icon = button.querySelector('.toggle-icon');
-  
-  if (advancedSettings.style.display === 'none') {
-    advancedSettings.style.display = 'block';
-    icon.textContent = '▼';
-  } else {
-    advancedSettings.style.display = 'none';
-    icon.textContent = '▶';
-  }
 }
 
 function clearTTSQueue() {
@@ -273,32 +207,51 @@ function queueTTSMessage(text, username) {
     return;
   }
 
-  const chunks = splitMessageIntoChunks(text);
-  const userSettings = ttsState.users.get(username.toLowerCase());
-  const voices = tts.getVoices();
-  const voice = voices.find(v => v.name === userSettings.voice);
+  try {
+    const chunks = splitMessageIntoChunks(text);
+    const voiceName = ttsState.users.get(username.toLowerCase());
+    const voices = tts.getVoices();
+    const voice = voices.find(v => v.name === voiceName);
 
-  chunks.forEach(chunk => {
-    const utterance = new SpeechSynthesisUtterance(chunk);
-    
-    if (voice) {
-      utterance.voice = voice;
+    // Limit the number of chunks to prevent overload
+    const maxChunks = 5;
+    const limitedChunks = chunks.slice(0, maxChunks);
+
+    limitedChunks.forEach(chunk => {
+      const utterance = new SpeechSynthesisUtterance(chunk);
+      
+      if (voice) {
+        utterance.voice = voice;
+      }
+
+      utterance.rate = 1;
+      utterance.pitch = 1;
+      utterance.volume = 1;
+
+      // Add error handling
+      utterance.onerror = (event) => {
+        console.error('TTS Error:', event);
+        resetTTS();
+      };
+
+      // Limit queue size
+      if (ttsState.queue.length < 10) {
+        ttsState.queue.push(utterance);
+      }
+    });
+
+    // If we limited the chunks, add an indication
+    if (chunks.length > maxChunks) {
+      const indicator = new SpeechSynthesisUtterance("Message truncated for length");
+      indicator.volume = 0.8;
+      ttsState.queue.push(indicator);
     }
 
-    utterance.rate = userSettings.speed;
-    utterance.pitch = userSettings.pitch;
-    utterance.volume = 1;
-
-    // Add error handling
-    utterance.onerror = (event) => {
-      console.error('TTS Error:', event);
-      resetTTS();
-    };
-
-    ttsState.queue.push(utterance);
-  });
-
-  processTTSQueue();
+    processTTSQueue();
+  } catch (error) {
+    console.error('Error queuing TTS message:', error);
+    resetTTS();
+  }
 }
 
 function processTTSQueue() {
@@ -306,21 +259,33 @@ function processTTSQueue() {
     return;
   }
 
-  ttsState.speaking = true;
-  const utterance = ttsState.queue.shift();
-  
-  utterance.onend = () => {
-    ttsState.speaking = false;
-    processTTSQueue();
-  };
-
-  utterance.onerror = () => {
-    console.error('TTS Error during playback');
-    resetTTS();
-  };
-
   try {
+    ttsState.speaking = true;
+    const utterance = ttsState.queue.shift();
+    
+    utterance.onend = () => {
+      ttsState.speaking = false;
+      // Small delay between messages
+      setTimeout(() => {
+        processTTSQueue();
+      }, 50);
+    };
+
+    utterance.onerror = (event) => {
+      console.error('TTS Error during playback:', event);
+      resetTTS();
+    };
+
     tts.speak(utterance);
+
+    // Set a timeout to reset if the message takes too long
+    setTimeout(() => {
+      if (ttsState.speaking) {
+        console.log("Message taking too long, resetting...");
+        resetTTS();
+      }
+    }, 10000); // 10 second timeout
+
   } catch (error) {
     console.error('TTS Speak Error:', error);
     resetTTS();
