@@ -111,8 +111,15 @@
       border: 1px solid #ddd;
     }
 
-    .tts-user button {
+    .tts-user select {
       margin-left: auto;
+      margin-right: 5px;
+      padding: 2px;
+      border: 1px solid #ddd;
+      border-radius: 3px;
+    }
+
+    .tts-user button {
       padding: 2px 6px;
       background: #dc3545;
       color: white;
@@ -178,6 +185,9 @@
       
       <form id="tts-add-form">
         <input type="text" id="tts-username" placeholder="Enter username for TTS">
+        <select id="tts-voice-select">
+          <!-- Will be populated with available voices -->
+        </select>
         <button type="submit" class="control-btn add-btn">Add User</button>
       </form>
       

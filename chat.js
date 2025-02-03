@@ -10,18 +10,31 @@ const ttsToggleButton = document.getElementById('tts-toggle');
 const ttsClearQueueButton = document.getElementById('tts-clear-queue');
 const ttsAddForm = document.getElementById('tts-add-form');
 const ttsUsernameInput = document.getElementById('tts-username');
+const ttsVoiceSelect = document.getElementById('tts-voice-select');
 const ttsUsersList = document.getElementById('tts-users');
 
 // TTS State
 const ttsState = {
   enabled: true,
-  users: new Set(),
+  users: new Map(), 
   queue: [],
   speaking: false
 };
 
 // Initialize TTS
 const tts = window.speechSynthesis;
+
+// Populate voice select with available voices
+function populateVoiceList() {
+  const voices = tts.getVoices();
+  ttsVoiceSelect.innerHTML = voices.map(voice => 
+    `<option value="${voice.name}">${voice.name} (${voice.lang})</option>`
+  ).join('');
+}
+
+// Handle voice list change
+tts.onvoiceschanged = populateVoiceList;
+populateVoiceList(); 
 
 // TTS Controls
 ttsToggleButton.addEventListener('click', () => {
@@ -38,15 +51,16 @@ ttsClearQueueButton.addEventListener('click', clearTTSQueue);
 ttsAddForm.addEventListener('submit', (e) => {
   e.preventDefault();
   const username = ttsUsernameInput.value.toLowerCase().trim();
+  const voiceName = ttsVoiceSelect.value;
   if (username) {
-    addTTSUser(username);
+    addTTSUser(username, voiceName);
     ttsUsernameInput.value = '';
   }
 });
 
-function addTTSUser(username) {
+function addTTSUser(username, voiceName) {
   if (!ttsState.users.has(username)) {
-    ttsState.users.add(username);
+    ttsState.users.set(username, voiceName);
     updateTTSUsersList();
   }
 }
@@ -56,13 +70,32 @@ function removeTTSUser(username) {
   updateTTSUsersList();
 }
 
+function updateUserVoice(username, voiceName) {
+  if (ttsState.users.has(username)) {
+    ttsState.users.set(username, voiceName);
+  }
+}
+
 function updateTTSUsersList() {
   ttsUsersList.innerHTML = '';
-  ttsState.users.forEach(username => {
+  ttsState.users.forEach((voiceName, username) => {
     const div = document.createElement('div');
     div.className = 'tts-user';
+    
+    const voices = tts.getVoices();
+    const voiceSelect = `
+      <select onchange="updateUserVoice('${username}', this.value)">
+        ${voices.map(voice => 
+          `<option value="${voice.name}" ${voice.name === voiceName ? 'selected' : ''}>
+            ${voice.name} (${voice.lang})
+          </option>`
+        ).join('')}
+      </select>
+    `;
+
     div.innerHTML = `
       <span>${username}</span>
+      ${voiceSelect}
       <button onclick="removeTTSUser('${username}')">×</button>
     `;
     ttsUsersList.appendChild(div);
@@ -104,6 +137,14 @@ function queueTTSMessage(text, username) {
   }
 
   const utterance = new SpeechSynthesisUtterance(text);
+  const voiceName = ttsState.users.get(username.toLowerCase());
+  const voices = tts.getVoices();
+  const voice = voices.find(v => v.name === voiceName);
+  
+  if (voice) {
+    utterance.voice = voice;
+  }
+
   utterance.rate = 1;
   utterance.pitch = 1;
   utterance.volume = 1;
