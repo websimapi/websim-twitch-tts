@@ -12,10 +12,12 @@ const ttsAddForm = document.getElementById('tts-add-form');
 const ttsUsernameInput = document.getElementById('tts-username');
 const ttsVoiceSelect = document.getElementById('tts-voice-select');
 const ttsUsersList = document.getElementById('tts-users');
+const ttsFilterToggleButton = document.getElementById('tts-filter-toggle');
 
 // TTS State with localStorage support
 const ttsState = {
   enabled: localStorage.getItem('ttsEnabled') === 'true' || true,
+  filterEnabled: localStorage.getItem('ttsFilterEnabled') === 'true' || true,
   users: new Map(JSON.parse(localStorage.getItem('ttsUsers') || '[]')), 
   queue: [],
   speaking: false,
@@ -27,8 +29,8 @@ const tts = window.speechSynthesis;
 
 // Break message into digestible chunks
 function splitMessageIntoChunks(text, maxLength = 180) {
-  // Skip if message contains URLs
-  if (/https?:\/\/[^\s]+/.test(text)) {
+  // Skip if message contains URLs and filter is enabled
+  if (ttsState.filterEnabled && /https?:\/\/[^\s]+/.test(text)) {
     return [];
   }
 
@@ -96,12 +98,15 @@ function populateVoiceList() {
 function loadTTSState() {
   ttsToggleButton.textContent = ttsState.enabled ? 'TTS Enabled' : 'TTS Disabled';
   ttsToggleButton.classList.toggle('off', !ttsState.enabled);
+  ttsFilterToggleButton.textContent = ttsState.filterEnabled ? 'Filter Enabled' : 'Filter Disabled';
+  ttsFilterToggleButton.classList.toggle('off', !ttsState.filterEnabled);
   updateTTSUsersList();
 }
 
 // Save TTS state to localStorage
 function saveTTSState() {
   localStorage.setItem('ttsEnabled', ttsState.enabled);
+  localStorage.setItem('ttsFilterEnabled', ttsState.filterEnabled);
   localStorage.setItem('ttsUsers', JSON.stringify(Array.from(ttsState.users.entries())));
 }
 
@@ -135,6 +140,14 @@ ttsAddForm.addEventListener('submit', (e) => {
     addTTSUser(username, voiceName);
     ttsUsernameInput.value = '';
   }
+});
+
+// Add filter toggle handler
+ttsFilterToggleButton.addEventListener('click', () => {
+  ttsState.filterEnabled = !ttsState.filterEnabled;
+  ttsFilterToggleButton.textContent = ttsState.filterEnabled ? 'Filter Enabled' : 'Filter Disabled';
+  ttsFilterToggleButton.classList.toggle('off', !ttsState.filterEnabled);
+  saveTTSState();
 });
 
 function addTTSUser(username, voiceName) {
