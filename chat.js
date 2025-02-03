@@ -24,6 +24,60 @@ const ttsState = {
 // Initialize TTS
 const tts = window.speechSynthesis;
 
+// Break message into digestible chunks
+function splitMessageIntoChunks(text, maxLength = 200) {
+  // First split on punctuation
+  const punctuationSplit = text.split(/([.!?]+\s+)/g);
+  const chunks = [];
+  let currentChunk = '';
+
+  punctuationSplit.forEach(segment => {
+    if ((currentChunk + segment).length <= maxLength) {
+      currentChunk += segment;
+    } else {
+      // If the current segment is too long, split on spaces
+      if (currentChunk) chunks.push(currentChunk.trim());
+      
+      if (segment.length > maxLength) {
+        // Split long segments on spaces
+        const words = segment.split(/\s+/);
+        currentChunk = '';
+        
+        words.forEach(word => {
+          if ((currentChunk + ' ' + word).length <= maxLength) {
+            currentChunk += (currentChunk ? ' ' : '') + word;
+          } else {
+            if (currentChunk) chunks.push(currentChunk.trim());
+            currentChunk = word;
+          }
+        });
+      } else {
+        currentChunk = segment;
+      }
+    }
+  });
+
+  if (currentChunk) chunks.push(currentChunk.trim());
+  return chunks.filter(chunk => chunk.length > 0);
+}
+
+// Reset TTS if it gets stuck
+function resetTTS() {
+  if (tts.speaking) {
+    tts.cancel();
+  }
+  ttsState.speaking = false;
+  processTTSQueue();
+}
+
+// Add automatic reset if TTS gets stuck
+setInterval(() => {
+  if (ttsState.speaking && !tts.speaking) {
+    console.log("Detected stuck TTS state, resetting...");
+    resetTTS();
+  }
+}, 1000);
+
 // Populate voice select with available voices
 function populateVoiceList() {
   const voices = tts.getVoices();
@@ -132,6 +186,39 @@ function clearTTSQueue() {
   ttsState.speaking = false;
 }
 
+function queueTTSMessage(text, username) {
+  if (!ttsState.enabled || !ttsState.users.has(username.toLowerCase()) || text.includes('!')) {
+    return;
+  }
+
+  const chunks = splitMessageIntoChunks(text);
+  const voiceName = ttsState.users.get(username.toLowerCase());
+  const voices = tts.getVoices();
+  const voice = voices.find(v => v.name === voiceName);
+
+  chunks.forEach(chunk => {
+    const utterance = new SpeechSynthesisUtterance(chunk);
+    
+    if (voice) {
+      utterance.voice = voice;
+    }
+
+    utterance.rate = 1;
+    utterance.pitch = 1;
+    utterance.volume = 1;
+
+    // Add error handling
+    utterance.onerror = (event) => {
+      console.error('TTS Error:', event);
+      resetTTS();
+    };
+
+    ttsState.queue.push(utterance);
+  });
+
+  processTTSQueue();
+}
+
 function processTTSQueue() {
   if (!ttsState.enabled || ttsState.speaking || ttsState.queue.length === 0) {
     return;
@@ -146,33 +233,16 @@ function processTTSQueue() {
   };
 
   utterance.onerror = () => {
-    ttsState.speaking = false;
-    processTTSQueue();
+    console.error('TTS Error during playback');
+    resetTTS();
   };
 
-  tts.speak(utterance);
-}
-
-function queueTTSMessage(text, username) {
-  if (!ttsState.enabled || !ttsState.users.has(username.toLowerCase()) || text.includes('!')) {
-    return;
+  try {
+    tts.speak(utterance);
+  } catch (error) {
+    console.error('TTS Speak Error:', error);
+    resetTTS();
   }
-
-  const utterance = new SpeechSynthesisUtterance(text);
-  const voiceName = ttsState.users.get(username.toLowerCase());
-  const voices = tts.getVoices();
-  const voice = voices.find(v => v.name === voiceName);
-  
-  if (voice) {
-    utterance.voice = voice;
-  }
-
-  utterance.rate = 1;
-  utterance.pitch = 1;
-  utterance.volume = 1;
-
-  ttsState.queue.push(utterance);
-  processTTSQueue();
 }
 
 // Handle connect/disconnect
