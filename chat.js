@@ -53,6 +53,10 @@ const ttsUsernameInput = document.getElementById('tts-username');
 const ttsVoiceSelect = document.getElementById('tts-voice-select');
 const ttsUsersList = document.getElementById('tts-users');
 const ttsFilterToggleButton = document.getElementById('tts-filter-toggle');
+const soundUserSelect = document.getElementById('sound-user-select');
+const soundUpload = document.getElementById('sound-upload');
+const soundUploadBtn = document.getElementById('sound-upload-btn');
+const soundList = document.getElementById('sound-list');
 
 // TTS State with localStorage support
 const ttsState = {
@@ -61,7 +65,8 @@ const ttsState = {
   users: new Map(JSON.parse(localStorage.getItem('ttsUsers') || '[]')), 
   queue: [],
   speaking: false,
-  currentUtterance: null
+  currentUtterance: null,
+  userSounds: new Map(JSON.parse(localStorage.getItem('userSounds') || '[]')), // Store sound data
 };
 
 // Initialize TTS
@@ -211,13 +216,16 @@ function addTTSUser(username, voiceName) {
     ttsState.users.set(username, voiceName);
     saveTTSState();
     updateTTSUsersList();
+    updateSoundUserSelect();
   }
 }
 
 function removeTTSUser(username) {
   ttsState.users.delete(username);
+  deleteUserSound(username);
   saveTTSState();
   updateTTSUsersList();
+  updateSoundUserSelect();
 }
 
 function updateUserVoice(username, voiceName) {
@@ -316,7 +324,19 @@ function queueTTSMessage(text, username) {
     utterance.pitch = 1;
     utterance.volume = 1;
     utterance.username = username;
-    utterance.displayText = displayText; // Store censored version for display
+    utterance.displayText = displayText;
+
+    // Add sound handling for filtered words
+    if (ttsState.filterEnabled && ttsState.userSounds.has(username.toLowerCase())) {
+      utterance.onboundary = (event) => {
+        if (event.name === 'word') {
+          const word = event.target.text.substring(event.charIndex, event.charIndex + event.charLength);
+          if (containsBadWords(word)) {
+            playUserSound(username.toLowerCase());
+          }
+        }
+      };
+    }
 
     utterance.onerror = (event) => {
       console.error('TTS Error:', event);
@@ -328,40 +348,6 @@ function queueTTSMessage(text, username) {
   });
 
   processTTSQueue();
-}
-
-function processTTSQueue() {
-  if (!ttsState.enabled || ttsState.speaking || ttsState.queue.length === 0) {
-    updateQueueDisplay();
-    return;
-  }
-
-  ttsState.speaking = true;
-  const utterance = ttsState.queue.shift();
-  ttsState.currentUtterance = utterance;
-  updateQueueDisplay();
-  
-  utterance.onend = () => {
-    ttsState.speaking = false;
-    ttsState.currentUtterance = null;
-    processTTSQueue();
-  };
-
-  utterance.onstart = () => {
-    updateQueueDisplay(); // Update display when speech starts
-  };
-
-  utterance.onerror = () => {
-    console.error('TTS Error during playback');
-    resetTTS();
-  };
-
-  try {
-    tts.speak(utterance);
-  } catch (error) {
-    console.error('TTS Speak Error:', error);
-    resetTTS();
-  }
 }
 
 // Handle connect/disconnect
@@ -508,3 +494,127 @@ channelInput.addEventListener('keypress', (e) => {
     connectButton.click();
   }
 });
+
+// Update sound user select when TTS users change
+function updateSoundUserSelect() {
+  soundUserSelect.innerHTML = Array.from(ttsState.users.keys()).map(username => 
+    `<option value="${username}">${username}</option>`
+  ).join('');
+}
+
+// Update sound list display
+function updateSoundList() {
+  soundList.innerHTML = '';
+  ttsState.userSounds.forEach((soundData, username) => {
+    const div = document.createElement('div');
+    div.className = 'sound-item';
+    div.innerHTML = `
+      <span>${username}</span>
+      <span>${soundData.name}</span>
+      <button class="play-btn" onclick="playUserSound('${username}')">Test</button>
+      <button class="delete-btn" onclick="deleteUserSound('${username}')">Delete</button>
+    `;
+    soundList.appendChild(div);
+  });
+}
+
+// Play user's custom sound
+function playUserSound(username) {
+  const soundData = ttsState.userSounds.get(username);
+  if (soundData) {
+    const audio = new Audio(soundData.url);
+    audio.play();
+  }
+}
+
+// Delete user's custom sound
+function deleteUserSound(username) {
+  if (ttsState.userSounds.has(username)) {
+    URL.revokeObjectURL(ttsState.userSounds.get(username).url);
+    ttsState.userSounds.delete(username);
+    saveUserSounds();
+    updateSoundList();
+  }
+}
+
+// Save user sounds to localStorage
+function saveUserSounds() {
+  const serializedSounds = Array.from(ttsState.userSounds.entries()).map(([username, soundData]) => [
+    username,
+    {
+      url: soundData.url,
+      name: soundData.name
+    }
+  ]);
+  localStorage.setItem('userSounds', JSON.stringify(serializedSounds));
+}
+
+// Handle sound upload
+soundUploadBtn.addEventListener('click', () => {
+  const username = soundUserSelect.value;
+  const file = soundUpload.files[0];
+  
+  if (!username || !file) {
+    alert('Please select a user and sound file');
+    return;
+  }
+
+  if (!file.type.startsWith('audio/')) {
+    alert('Please select an audio file');
+    return;
+  }
+
+  // Remove old sound if exists
+  if (ttsState.userSounds.has(username)) {
+    URL.revokeObjectURL(ttsState.userSounds.get(username).url);
+  }
+
+  // Store new sound
+  const soundUrl = URL.createObjectURL(file);
+  ttsState.userSounds.set(username, {
+    url: soundUrl,
+    name: file.name
+  });
+
+  saveUserSounds();
+  updateSoundList();
+  soundUpload.value = '';
+});
+
+// Initialize sound management
+updateSoundUserSelect();
+updateSoundList();
+
+function processTTSQueue() {
+  if (!ttsState.enabled || ttsState.speaking || ttsState.queue.length === 0) {
+    updateQueueDisplay();
+    return;
+  }
+
+  ttsState.speaking = true;
+  const utterance = ttsState.queue.shift();
+  ttsState.currentUtterance = utterance;
+  updateQueueDisplay();
+  
+  utterance.onend = () => {
+    ttsState.speaking = false;
+    ttsState.currentUtterance = null;
+    processTTSQueue();
+  };
+
+  utterance.onstart = () => {
+    updateQueueDisplay(); // Update display when speech starts
+  };
+
+  utterance.onerror = () => {
+    console.error('TTS Error during playback');
+    resetTTS();
+  };
+
+  try {
+    tts.speak(utterance);
+  } catch (error) {
+    console.error('TTS Speak Error:', error);
+    resetTTS();
+  }
+}
