@@ -23,6 +23,23 @@ function containsBadWords(text) {
   );
 }
 
+// Check if word contains any bad words and return censored version
+function censorBadWords(text) {
+  let censoredText = text.toLowerCase();
+  
+  badWordsData.forEach(category => 
+    category.dictionary.forEach(entry => {
+      const matches = entry.match.split('|');
+      matches.forEach(match => {
+        const matchRegex = new RegExp(match.toLowerCase(), 'gi');
+        censoredText = censoredText.replace(matchRegex, '*'.repeat(match.length));
+      });
+    })
+  );
+  
+  return censoredText;
+}
+
 // Initialize elements
 const channelInput = document.getElementById('channel-input');
 const connectButton = document.getElementById('connect-btn');
@@ -51,15 +68,16 @@ const tts = window.speechSynthesis;
 
 // Break message into digestible chunks
 function splitMessageIntoChunks(text, maxLength = 180) {
-  // Skip if message contains URLs and filter is enabled
-  if (ttsState.filterEnabled) {
-    if (/https?:\/\/[^\s]+/.test(text) || containsBadWords(text)) {
-      return [];
-    }
+  // Skip if message contains URLs
+  if (ttsState.filterEnabled && /https?:\/\/[^\s]+/.test(text)) {
+    return [];
   }
 
+  // Censor bad words if filter is enabled
+  const processedText = ttsState.filterEnabled ? censorBadWords(text) : text;
+
   // First split on punctuation
-  const punctuationSplit = text.split(/([.!?]+\s+)/g);
+  const punctuationSplit = processedText.split(/([.!?]+\s+)/g);
   const chunks = [];
   let currentChunk = '';
 
