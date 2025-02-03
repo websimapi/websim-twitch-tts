@@ -13,23 +13,18 @@ const ttsUsernameInput = document.getElementById('tts-username');
 const ttsVoiceSelect = document.getElementById('tts-voice-select');
 const ttsUsersList = document.getElementById('tts-users');
 
-// TTS State
+// TTS State with localStorage support
 const ttsState = {
-  enabled: true,
+  enabled: localStorage.getItem('ttsEnabled') === 'true' || true,
   users: new Map(JSON.parse(localStorage.getItem('ttsUsers') || '[]')), 
   queue: [],
   speaking: false
 };
 
-// Save TTS users to localStorage
-function saveTTSUsers() {
-  localStorage.setItem('ttsUsers', JSON.stringify(Array.from(ttsState.users.entries())));
-}
-
 // Initialize TTS
 const tts = window.speechSynthesis;
 
-// Initialize voice select with available voices 
+// Populate voice select with available voices
 function populateVoiceList() {
   const voices = tts.getVoices();
   ttsVoiceSelect.innerHTML = voices.map(voice => 
@@ -37,11 +32,72 @@ function populateVoiceList() {
   ).join('');
 }
 
-// Handle voice list change 
-tts.onvoiceschanged = populateVoiceList;
-populateVoiceList();
+// Load TTS state from localStorage
+function loadTTSState() {
+  ttsToggleButton.textContent = ttsState.enabled ? 'TTS Enabled' : 'TTS Disabled';
+  ttsToggleButton.classList.toggle('off', !ttsState.enabled);
+  updateTTSUsersList();
+}
 
-// Load saved TTS users when page loads
+// Save TTS state to localStorage
+function saveTTSState() {
+  localStorage.setItem('ttsEnabled', ttsState.enabled);
+  localStorage.setItem('ttsUsers', JSON.stringify(Array.from(ttsState.users.entries())));
+}
+
+// Handle voice list change
+tts.onvoiceschanged = () => {
+  populateVoiceList();
+  loadTTSState();
+};
+
+populateVoiceList();
+loadTTSState();
+
+// TTS Controls
+ttsToggleButton.addEventListener('click', () => {
+  ttsState.enabled = !ttsState.enabled;
+  ttsToggleButton.textContent = ttsState.enabled ? 'TTS Enabled' : 'TTS Disabled';
+  ttsToggleButton.classList.toggle('off', !ttsState.enabled);
+  if (!ttsState.enabled) {
+    clearTTSQueue();
+  }
+  saveTTSState();
+});
+
+ttsClearQueueButton.addEventListener('click', clearTTSQueue);
+
+ttsAddForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const username = ttsUsernameInput.value.toLowerCase().trim();
+  const voiceName = ttsVoiceSelect.value;
+  if (username) {
+    addTTSUser(username, voiceName);
+    ttsUsernameInput.value = '';
+  }
+});
+
+function addTTSUser(username, voiceName) {
+  if (!ttsState.users.has(username)) {
+    ttsState.users.set(username, voiceName);
+    saveTTSState();
+    updateTTSUsersList();
+  }
+}
+
+function removeTTSUser(username) {
+  ttsState.users.delete(username);
+  saveTTSState();
+  updateTTSUsersList();
+}
+
+function updateUserVoice(username, voiceName) {
+  if (ttsState.users.has(username)) {
+    ttsState.users.set(username, voiceName);
+    saveTTSState();
+  }
+}
+
 function updateTTSUsersList() {
   ttsUsersList.innerHTML = '';
   ttsState.users.forEach((voiceName, username) => {
@@ -66,50 +122,6 @@ function updateTTSUsersList() {
     `;
     ttsUsersList.appendChild(div);
   });
-}
-updateTTSUsersList();
-
-// TTS Controls
-ttsToggleButton.addEventListener('click', () => {
-  ttsState.enabled = !ttsState.enabled;
-  ttsToggleButton.textContent = ttsState.enabled ? 'TTS Enabled' : 'TTS Disabled';
-  ttsToggleButton.classList.toggle('off', !ttsState.enabled);
-  if (!ttsState.enabled) {
-    clearTTSQueue();
-  }
-});
-
-ttsClearQueueButton.addEventListener('click', clearTTSQueue);
-
-ttsAddForm.addEventListener('submit', (e) => {
-  e.preventDefault();
-  const username = ttsUsernameInput.value.toLowerCase().trim();
-  const voiceName = ttsVoiceSelect.value;
-  if (username) {
-    addTTSUser(username, voiceName);
-    ttsUsernameInput.value = '';
-  }
-});
-
-function addTTSUser(username, voiceName) {
-  if (!ttsState.users.has(username)) {
-    ttsState.users.set(username, voiceName);
-    updateTTSUsersList();
-    saveTTSUsers();
-  }
-}
-
-function removeTTSUser(username) {
-  ttsState.users.delete(username);
-  updateTTSUsersList();
-  saveTTSUsers();
-}
-
-function updateUserVoice(username, voiceName) {
-  if (ttsState.users.has(username)) {
-    ttsState.users.set(username, voiceName);
-    saveTTSUsers();
-  }
 }
 
 function clearTTSQueue() {

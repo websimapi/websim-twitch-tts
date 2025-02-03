@@ -2,140 +2,78 @@
 <head>
   <title>Twitch Chat Viewer</title>
   <style>
-    :root {
-      --primary-color: #6441A4;
-      --secondary-color: #392E5C;
-      --success-color: #28a745;
-      --danger-color: #dc3545;
-      --background-light: #f8f9fa;
-      --text-color: #333;
-      --border-radius: 8px;
-      --spacing: 20px;
-      --transition: all 0.3s ease;
-    }
-
     body {
       font-family: system-ui, -apple-system, sans-serif;
       margin: 0;
-      padding: var(--spacing);
-      background: var(--background-light);
-      color: var(--text-color);
-      line-height: 1.6;
+      padding: 20px;
+      background: #f0f0f0;
     }
 
     .container {
       max-width: 800px;
       margin: 0 auto;
       background: white;
-      padding: var(--spacing);
-      border-radius: var(--border-radius);
-      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
 
-    h1 {
-      color: var(--primary-color);
-      margin-bottom: var(--spacing);
-    }
-
-    .section {
-      margin-bottom: var(--spacing);
-      padding: var(--spacing);
-      background: var(--background-light);
-      border-radius: var(--border-radius);
-    }
-
-    .section h3 {
-      margin-top: 0;
-      color: var(--secondary-color);
-    }
-
-    /* Connect Form */
     #connect-form {
-      display: flex;
-      gap: 10px;
-      align-items: center;
+      margin-bottom: 20px;
     }
 
-    input[type="text"], select {
-      padding: 8px 12px;
-      border: 2px solid #ddd;
-      border-radius: var(--border-radius);
+    #channel-input {
+      padding: 8px;
       font-size: 16px;
-      transition: var(--transition);
+      border: 2px solid #6441A4;
+      border-radius: 4px;
+      margin-right: 10px;
+      width: 200px;
     }
 
-    input[type="text"]:focus, select:focus {
-      border-color: var(--primary-color);
-      outline: none;
-    }
-
-    /* Buttons */
-    .btn {
+    #connect-btn {
       padding: 8px 16px;
-      font-size: 14px;
-      border: none;
-      border-radius: var(--border-radius);
-      cursor: pointer;
-      transition: var(--transition);
+      font-size: 16px;
+      background: #6441A4;
       color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
     }
 
-    .btn-primary {
-      background: var(--primary-color);
+    #connect-btn:hover {
+      background: #7454B3;
     }
 
-    .btn-primary:hover {
-      background: var(--secondary-color);
-    }
-
-    .btn-success {
-      background: var(--success-color);
-    }
-
-    .btn-danger {
-      background: var(--danger-color);
-    }
-
-    /* Chat Box */
     #chat-box {
       height: 500px;
       overflow-y: auto;
       border: 1px solid #ddd;
-      border-radius: var(--border-radius);
-      padding: 15px;
-      background: white;
-      margin: var(--spacing) 0;
+      border-radius: 4px;
+      padding: 10px;
+      background: #fff;
     }
 
     .chat-message {
-      padding: 6px 10px;
-      border-radius: var(--border-radius);
-      margin-bottom: 4px;
-      transition: var(--transition);
-    }
-
-    .chat-message:hover {
-      background: var(--background-light);
+      padding: 4px 0;
+      word-wrap: break-word;
     }
 
     .username {
       font-weight: bold;
-      color: var(--primary-color);
+      color: #6441A4;
     }
 
     .timestamp {
       color: #666;
       font-size: 0.8em;
-      margin-right: 8px;
+      margin-right: 5px;
     }
 
-    /* Status */
     .status {
       margin: 10px 0;
       padding: 10px;
-      border-radius: var(--border-radius);
-      text-align: center;
-      font-weight: 500;
+      border-radius: 4px;
     }
 
     .status.connected {
@@ -148,55 +86,126 @@
       color: #721c24;
     }
 
-    /* TTS Controls */
     .tts-controls {
-      background: white;
-      padding: var(--spacing);
-      border-radius: var(--border-radius);
-      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+      margin: 20px 0;
+      padding: 20px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     }
 
-    .tts-header {
+    .tts-controls h3 {
+      margin-top: 0;
+      margin-bottom: 15px;
+      color: #333;
+    }
+
+    .tts-button-group {
       display: flex;
       gap: 10px;
-      margin-bottom: var(--spacing);
-    }
-
-    #tts-add-form {
-      display: grid;
-      grid-template-columns: 1fr 1fr auto;
-      gap: 10px;
-      margin-bottom: var(--spacing);
+      margin-bottom: 20px;
     }
 
     .tts-user-list {
+      margin-top: 15px;
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-      gap: 10px;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 15px;
     }
 
     .tts-user {
       display: flex;
       align-items: center;
       gap: 8px;
-      background: var(--background-light);
-      padding: 8px 12px;
-      border-radius: var(--border-radius);
-      border: 1px solid #ddd;
+      background: #fff;
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid #e0e0e0;
+      transition: all 0.2s ease;
+    }
+
+    .tts-user:hover {
+      border-color: #6441A4;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .tts-user span {
+      font-weight: 500;
+      color: #333;
     }
 
     .tts-user select {
       flex: 1;
-      min-width: 0;
+      padding: 4px 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
     }
 
     .tts-user button {
       padding: 4px 8px;
-      background: var(--danger-color);
+      background: #dc3545;
       color: white;
       border: none;
       border-radius: 4px;
       cursor: pointer;
+      transition: background 0.2s ease;
+    }
+
+    .tts-user button:hover {
+      background: #c82333;
+    }
+
+    #tts-add-form {
+      display: flex;
+      gap: 10px;
+      margin: 15px 0;
+      padding: 15px;
+      background: white;
+      border-radius: 6px;
+      border: 1px solid #e0e0e0;
+    }
+
+    #tts-username {
+      flex: 1;
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+
+    #tts-voice-select {
+      min-width: 200px;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+
+    .control-btn {
+      padding: 8px 16px;
+      font-size: 14px;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.2s ease;
+    }
+
+    .control-btn:hover {
+      opacity: 0.9;
+    }
+
+    .add-btn {
+      background: #28a745;
+    }
+
+    .clear-btn {
+      background: #dc3545;
+    }
+
+    .toggle-btn {
+      background: #007bff;
     }
 
     .toggle-btn.off {
@@ -208,26 +217,26 @@
   <div class="container">
     <h1>Twitch Chat Viewer</h1>
     
-    <div class="section">
-      <div id="connect-form">
-        <input type="text" id="channel-input" placeholder="Enter channel name">
-        <button id="connect-btn" class="btn btn-primary">Connect</button>
-      </div>
-      <div id="status" class="status"></div>
+    <div id="connect-form">
+      <input type="text" id="channel-input" placeholder="Enter channel name">
+      <button id="connect-btn">Connect</button>
     </div>
 
-    <div class="section tts-controls">
+    <div id="status" class="status"></div>
+
+    <div class="tts-controls">
       <h3>TTS Controls</h3>
-      
-      <div class="tts-header">
-        <button id="tts-toggle" class="btn btn-primary">TTS Enabled</button>
-        <button id="tts-clear-queue" class="btn btn-danger">Clear TTS Queue</button>
+      <div class="tts-button-group">
+        <button id="tts-toggle" class="control-btn toggle-btn">TTS Enabled</button>
+        <button id="tts-clear-queue" class="control-btn clear-btn">Clear TTS Queue</button>
       </div>
       
       <form id="tts-add-form">
         <input type="text" id="tts-username" placeholder="Enter username for TTS">
-        <select id="tts-voice-select"></select>
-        <button type="submit" class="btn btn-success">Add User</button>
+        <select id="tts-voice-select">
+          <!-- Will be populated with available voices -->
+        </select>
+        <button type="submit" class="control-btn add-btn">Add User</button>
       </form>
       
       <div class="tts-user-list" id="tts-users"></div>
