@@ -24,8 +24,8 @@ function connectToChat() {
     return;
   }
 
-  // Create new client
-  client = new tmi.Client({
+  // Create new client using the imported tmi library
+  client = new window.tmi.Client({
     connection: {
       secure: true,
       reconnect: true
