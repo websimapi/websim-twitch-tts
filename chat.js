@@ -316,10 +316,24 @@ function addChatMessage(username, message, tags) {
   timestampSpan.textContent = timestamp;
   messageDiv.appendChild(timestampSpan);
 
-  // Add username
+  // Add username with click handler
   const usernameSpan = document.createElement('span');
   usernameSpan.className = 'username';
   usernameSpan.textContent = username;
+  
+  // Only add click handler if user isn't already in TTS list
+  if (!ttsState.users.has(username.toLowerCase())) {
+    usernameSpan.classList.add('clickable');
+    usernameSpan.title = 'Click to add TTS for this user';
+    usernameSpan.addEventListener('click', () => {
+      const voices = tts.getVoices();
+      if (voices.length) {
+        // Pick a random voice
+        const randomVoice = voices[Math.floor(Math.random() * voices.length)].name;
+        addTTSUser(username.toLowerCase(), randomVoice);
+      }
+    });
+  }
   messageDiv.appendChild(usernameSpan);
 
   // Handle !gamblevoice command
