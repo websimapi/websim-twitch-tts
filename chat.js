@@ -322,6 +322,35 @@ function addChatMessage(username, message, tags) {
   usernameSpan.textContent = username;
   messageDiv.appendChild(usernameSpan);
 
+  // Handle !gamblevoice command
+  if (message.toLowerCase() === '!gamblevoice') {
+    if (ttsState.users.has(username.toLowerCase())) {
+      const voices = tts.getVoices();
+      const currentVoice = ttsState.users.get(username.toLowerCase());
+      let newVoice;
+      do {
+        // Pick a random voice that's different from the current one
+        newVoice = voices[Math.floor(Math.random() * voices.length)].name;
+      } while (newVoice === currentVoice && voices.length > 1);
+      
+      updateUserVoice(username.toLowerCase(), newVoice);
+      
+      // Add a system message about the voice change
+      const systemMessage = document.createElement('div');
+      systemMessage.className = 'chat-message system-message';
+      systemMessage.innerHTML = `
+        <span class="timestamp">${new Date().toLocaleTimeString()}</span>
+        <span class="system-text"> ${username} rolled and got a new voice: ${newVoice}</span>
+      `;
+      chatBox.appendChild(systemMessage);
+      chatBox.scrollTop = chatBox.scrollHeight;
+
+      // Queue TTS notification
+      queueTTSMessage(`${username} rolled for a new voice`, 'System');
+    }
+    return; // Don't process further if it was a command
+  }
+
   // Add message
   const messageText = document.createElement('span');
   messageText.textContent = `: ${message}`;
