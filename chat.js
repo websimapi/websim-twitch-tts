@@ -1,6 +1,28 @@
 // Store the TMI client globally
 let client = null;
 
+// Store bad words data
+let badWordsData = [];
+
+// Load bad words data
+fetch('en.json')
+  .then(response => response.json())
+  .then(data => {
+    badWordsData = data;
+  })
+  .catch(error => console.error('Error loading bad words data:', error));
+
+// Check if text contains any bad words
+function containsBadWords(text) {
+  const lowerText = text.toLowerCase();
+  return badWordsData.some(category => 
+    category.dictionary.some(entry => {
+      const matches = entry.match.split('|');
+      return matches.some(match => lowerText.includes(match.toLowerCase()));
+    })
+  );
+}
+
 // Initialize elements
 const channelInput = document.getElementById('channel-input');
 const connectButton = document.getElementById('connect-btn');
@@ -30,8 +52,10 @@ const tts = window.speechSynthesis;
 // Break message into digestible chunks
 function splitMessageIntoChunks(text, maxLength = 180) {
   // Skip if message contains URLs and filter is enabled
-  if (ttsState.filterEnabled && /https?:\/\/[^\s]+/.test(text)) {
-    return [];
+  if (ttsState.filterEnabled) {
+    if (/https?:\/\/[^\s]+/.test(text) || containsBadWords(text)) {
+      return [];
+    }
   }
 
   // First split on punctuation
@@ -43,7 +67,6 @@ function splitMessageIntoChunks(text, maxLength = 180) {
     if ((currentChunk + segment).length <= maxLength) {
       currentChunk += segment;
     } else {
-      // If the current segment is too long, split on spaces
       if (currentChunk) chunks.push(currentChunk.trim());
       
       if (segment.length > maxLength) {
