@@ -96,150 +96,80 @@ function splitMessageIntoChunks(text, maxLength = 180) {
     return [];
   }
 
-  // First get all bad words positions
-  let badWordPositions = [];
+  // Censor bad words for display purposes
+  const censoredText = censorBadWords(text);
+  
+  // If filter is enabled, we need to split on filtered words
   if (ttsState.filterEnabled) {
-    badWordsData.forEach(category => {
-      category.dictionary.forEach(entry => {
-        const matches = entry.match.split('|');
-        matches.forEach(match => {
-          const regex = new RegExp(`\\b${match}\\b`, 'gi');
-          let result;
-          while ((result = regex.exec(text)) !== null) {
-            badWordPositions.push({
-              start: result.index,
-              end: result.index + match.length,
-              word: match
-            });
-          }
-        });
-      });
-    });
-  }
-
-  // Sort positions by start index
-  badWordPositions.sort((a, b) => a.start - b.start);
-
-  // Split text into chunks based on bad words and length limits
-  const chunks = [];
-  let currentStart = 0;
-
-  while (currentStart < text.length) {
-    // Find next bad word position
-    const nextBadWord = badWordPositions.find(pos => pos.start >= currentStart);
+    const chunks = [];
+    const words = text.split(/\s+/);
+    let currentChunk = '';
+    let currentDisplayChunk = '';
     
-    let chunkEnd = nextBadWord ? 
-      Math.min(currentStart + maxLength, nextBadWord.start) : 
-      Math.min(currentStart + maxLength, text.length);
-
-    // Adjust chunk end to not break words
-    if (chunkEnd < text.length) {
-      while (chunkEnd > currentStart && text[chunkEnd] !== ' ') {
-        chunkEnd--;
-      }
-    }
-
-    if (chunkEnd > currentStart) {
-      const chunk = text.substring(currentStart, chunkEnd).trim();
-      if (chunk) {
-        chunks.push([chunk, censorBadWords(chunk)]);
-      }
-    }
-
-    // If we hit a bad word, add it as a separate chunk
-    if (nextBadWord && nextBadWord.start === chunkEnd) {
-      chunks.push([nextBadWord.word, '*'.repeat(nextBadWord.word.length)]);
-      currentStart = nextBadWord.end;
-    } else {
-      currentStart = chunkEnd + 1;
-    }
-  }
-
-  return chunks.filter(chunk => chunk[0].length > 0);
-}
-
-// Modified handleWordBoundary for word filtering with sound synchronization
-function handleWordBoundary(event, username) {
-  if (event.name === 'word' && ttsState.filterEnabled) {
-    const word = event.target.text.substring(event.charIndex, event.charIndex + event.charLength);
-    if (containsBadWords(word) && ttsState.userSounds.has(username.toLowerCase())) {
-      // Cancel current utterance
-      tts.cancel();
-      
-      // Play the custom sound
-      const soundData = ttsState.userSounds.get(username.toLowerCase());
-      const audio = soundData.audio.cloneNode();
-      
-      // When sound finishes, continue with the rest of the message
-      audio.onended = () => {
-        // Continue with next utterance in queue
-        ttsState.speaking = false;
-        processTTSQueue();
-      };
-      
-      audio.play();
-    }
-  }
-}
-
-// Modified queueTTSMessage to handle chunks specially
-function queueTTSMessage(text, username) {
-  if (!ttsState.enabled || !ttsState.users.has(username.toLowerCase()) || text.startsWith('!')) {
-    return;
-  }
-
-  const chunks = splitMessageIntoChunks(text);
-  const voiceName = ttsState.users.get(username.toLowerCase());
-  const voices = tts.getVoices();
-  const voice = voices.find(v => v.name === voiceName);
-
-  chunks.forEach(([ttsText, displayText], index) => {
-    const utterance = new SpeechSynthesisUtterance(ttsText);
-    
-    if (voice) {
-      utterance.voice = voice;
-    }
-
-    utterance.rate = 1;
-    utterance.pitch = 1;
-    utterance.volume = 1;
-    utterance.username = username;
-    utterance.displayText = displayText;
-
-    // Only add boundary handler if it's not a censored chunk
-    if (ttsState.filterEnabled && containsBadWords(ttsText)) {
-      utterance.onend = () => {
-        if (ttsState.userSounds.has(username.toLowerCase())) {
-          const soundData = ttsState.userSounds.get(username.toLowerCase());
-          const audio = soundData.audio.cloneNode();
-          audio.onended = () => {
-            ttsState.speaking = false;
-            processTTSQueue();
-          };
-          audio.play();
-        } else {
-          ttsState.speaking = false;
-          processTTSQueue();
+    words.forEach(word => {
+      if (containsBadWords(word)) {
+        // Add current chunk if it exists
+        if (currentChunk) {
+          chunks.push([currentChunk.trim(), currentDisplayChunk.trim()]);
         }
-      };
-    } else {
-      utterance.onboundary = (event) => handleWordBoundary(event, username);
-      utterance.onend = () => {
-        ttsState.speaking = false;
-        processTTSQueue();
-      };
+        // Add a special marker for sound effect
+        chunks.push(['__SOUND_EFFECT__', '*'.repeat(word.length)]);
+        currentChunk = '';
+        currentDisplayChunk = '';
+      } else {
+        if ((currentChunk + ' ' + word).length <= maxLength) {
+          currentChunk += (currentChunk ? ' ' : '') + word;
+          currentDisplayChunk += (currentDisplayChunk ? ' ' : '') + word;
+        } else {
+          if (currentChunk) {
+            chunks.push([currentChunk.trim(), currentDisplayChunk.trim()]);
+          }
+          currentChunk = word;
+          currentDisplayChunk = word;
+        }
+      }
+    });
+
+    // Add remaining chunk if it exists
+    if (currentChunk) {
+      chunks.push([currentChunk.trim(), currentDisplayChunk.trim()]);
     }
 
-    utterance.onerror = (event) => {
-      console.error('TTS Error:', event);
-      resetTTS();
-    };
+    return chunks;
+  } else {
+    // Original sentence-based splitting logic for non-filtered text
+    const punctuationSplit = text.split(/([.!?]+\s+)/g);
+    const chunks = [];
+    let currentChunk = '';
 
-    ttsState.queue.push(utterance);
-    updateQueueDisplay();
-  });
+    punctuationSplit.forEach(segment => {
+      if ((currentChunk + segment).length <= maxLength) {
+        currentChunk += segment;
+      } else {
+        if (currentChunk) chunks.push([currentChunk.trim(), currentChunk.trim()]);
+        
+        if (segment.length > maxLength) {
+          // Split long segments on spaces
+          const words = segment.split(/\s+/);
+          currentChunk = '';
+          
+          words.forEach(word => {
+            if ((currentChunk + ' ' + word).length <= maxLength) {
+              currentChunk += (currentChunk ? ' ' : '') + word;
+            } else {
+              if (currentChunk) chunks.push([currentChunk.trim(), currentChunk.trim()]);
+              currentChunk = word;
+            }
+          });
+        } else {
+          currentChunk = segment;
+        }
+      }
+    });
 
-  processTTSQueue();
+    if (currentChunk) chunks.push([currentChunk.trim(), currentChunk.trim()]);
+    return chunks.filter(chunk => chunk[0].length > 0);
+  }
 }
 
 // Reset TTS if it gets stuck
@@ -413,6 +343,50 @@ function updateQueueDisplay() {
       <span class="queue-text">${utterance.displayText}</span>
     </div>
   `).join('');
+}
+
+function queueTTSMessage(text, username) {
+  if (!ttsState.enabled || !ttsState.users.has(username.toLowerCase()) || text.startsWith('!')) {
+    return;
+  }
+
+  const chunks = splitMessageIntoChunks(text);
+  const voiceName = ttsState.users.get(username.toLowerCase());
+  const voices = tts.getVoices();
+  const voice = voices.find(v => v.name === voiceName);
+
+  chunks.forEach(([ttsText, displayText]) => {
+    if (ttsText === '__SOUND_EFFECT__') {
+      // Create a special utterance for sound effects
+      const utterance = new SpeechSynthesisUtterance('');
+      utterance.text = '__SOUND_EFFECT__';
+      utterance.username = username;
+      utterance.displayText = displayText;
+      ttsState.queue.push(utterance);
+    } else {
+      const utterance = new SpeechSynthesisUtterance(ttsText);
+      
+      if (voice) {
+        utterance.voice = voice;
+      }
+
+      utterance.rate = 1;
+      utterance.pitch = 1;
+      utterance.volume = 1;
+      utterance.username = username;
+      utterance.displayText = displayText;
+
+      utterance.onerror = (event) => {
+        console.error('TTS Error:', event);
+        resetTTS();
+      };
+
+      ttsState.queue.push(utterance);
+    }
+  });
+
+  updateQueueDisplay();
+  processTTSQueue();
 }
 
 // Handle connect/disconnect
@@ -667,6 +641,17 @@ function processTTSQueue() {
   const utterance = ttsState.queue.shift();
   ttsState.currentUtterance = utterance;
   updateQueueDisplay();
+
+  // Check if this is a sound effect marker
+  if (utterance.text === '__SOUND_EFFECT__') {
+    if (ttsState.userSounds.has(utterance.username.toLowerCase())) {
+      playUserSound(utterance.username.toLowerCase());
+    }
+    ttsState.speaking = false;
+    ttsState.currentUtterance = null;
+    processTTSQueue(); // Continue to next item
+    return;
+  }
   
   utterance.onend = () => {
     ttsState.speaking = false;
@@ -675,7 +660,7 @@ function processTTSQueue() {
   };
 
   utterance.onstart = () => {
-    updateQueueDisplay(); // Update display when speech starts
+    updateQueueDisplay();
   };
 
   utterance.onerror = () => {
