@@ -85,6 +85,79 @@
       background: #f8d7da;
       color: #721c24;
     }
+
+    /* TTS Controls */
+    .tts-controls {
+      margin: 20px 0;
+      padding: 15px;
+      background: #f8f9fa;
+      border-radius: 4px;
+    }
+
+    .tts-user-list {
+      margin-top: 10px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 10px;
+    }
+
+    .tts-user {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      background: #fff;
+      padding: 5px 10px;
+      border-radius: 4px;
+      border: 1px solid #ddd;
+    }
+
+    .tts-user button {
+      margin-left: auto;
+      padding: 2px 6px;
+      background: #dc3545;
+      color: white;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+
+    #tts-add-form {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    #tts-username {
+      flex: 1;
+      padding: 5px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+
+    .control-btn {
+      padding: 8px 16px;
+      font-size: 14px;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .add-btn {
+      background: #28a745;
+    }
+
+    .clear-btn {
+      background: #dc3545;
+    }
+
+    .toggle-btn {
+      background: #007bff;
+    }
+
+    .toggle-btn.off {
+      background: #6c757d;
+    }
   </style>
 </head>
 <body>
@@ -97,6 +170,20 @@
     </div>
 
     <div id="status" class="status"></div>
+
+    <div class="tts-controls">
+      <h3>TTS Controls</h3>
+      <button id="tts-toggle" class="control-btn toggle-btn">TTS Enabled</button>
+      <button id="tts-clear-queue" class="control-btn clear-btn">Clear TTS Queue</button>
+      
+      <form id="tts-add-form">
+        <input type="text" id="tts-username" placeholder="Enter username for TTS">
+        <button type="submit" class="control-btn add-btn">Add User</button>
+      </form>
+      
+      <div class="tts-user-list" id="tts-users"></div>
+    </div>
+
     <div id="chat-box"></div>
   </div>
 

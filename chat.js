@@ -6,6 +6,111 @@ const channelInput = document.getElementById('channel-input');
 const connectButton = document.getElementById('connect-btn');
 const chatBox = document.getElementById('chat-box');
 const statusDiv = document.getElementById('status');
+const ttsToggleButton = document.getElementById('tts-toggle');
+const ttsClearQueueButton = document.getElementById('tts-clear-queue');
+const ttsAddForm = document.getElementById('tts-add-form');
+const ttsUsernameInput = document.getElementById('tts-username');
+const ttsUsersList = document.getElementById('tts-users');
+
+// TTS State
+const ttsState = {
+  enabled: true,
+  users: new Set(),
+  queue: [],
+  speaking: false
+};
+
+// Initialize TTS
+const tts = window.speechSynthesis;
+
+// TTS Controls
+ttsToggleButton.addEventListener('click', () => {
+  ttsState.enabled = !ttsState.enabled;
+  ttsToggleButton.textContent = ttsState.enabled ? 'TTS Enabled' : 'TTS Disabled';
+  ttsToggleButton.classList.toggle('off', !ttsState.enabled);
+  if (!ttsState.enabled) {
+    clearTTSQueue();
+  }
+});
+
+ttsClearQueueButton.addEventListener('click', clearTTSQueue);
+
+ttsAddForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const username = ttsUsernameInput.value.toLowerCase().trim();
+  if (username) {
+    addTTSUser(username);
+    ttsUsernameInput.value = '';
+  }
+});
+
+function addTTSUser(username) {
+  if (!ttsState.users.has(username)) {
+    ttsState.users.add(username);
+    updateTTSUsersList();
+  }
+}
+
+function removeTTSUser(username) {
+  ttsState.users.delete(username);
+  updateTTSUsersList();
+}
+
+function updateTTSUsersList() {
+  ttsUsersList.innerHTML = '';
+  ttsState.users.forEach(username => {
+    const div = document.createElement('div');
+    div.className = 'tts-user';
+    div.innerHTML = `
+      <span>${username}</span>
+      <button onclick="removeTTSUser('${username}')">×</button>
+    `;
+    ttsUsersList.appendChild(div);
+  });
+}
+
+function clearTTSQueue() {
+  ttsState.queue = [];
+  if (tts.speaking) {
+    tts.cancel();
+  }
+  ttsState.speaking = false;
+}
+
+function processTTSQueue() {
+  if (!ttsState.enabled || ttsState.speaking || ttsState.queue.length === 0) {
+    return;
+  }
+
+  ttsState.speaking = true;
+  const utterance = ttsState.queue.shift();
+  
+  utterance.onend = () => {
+    ttsState.speaking = false;
+    processTTSQueue();
+  };
+
+  utterance.onerror = () => {
+    ttsState.speaking = false;
+    processTTSQueue();
+  };
+
+  tts.speak(utterance);
+}
+
+function queueTTSMessage(text, username) {
+  if (!ttsState.enabled || !ttsState.users.has(username.toLowerCase()) || text.includes('!')) {
+    return;
+  }
+
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.rate = 1;
+  utterance.pitch = 1;
+  utterance.volume = 1;
+
+  ttsState.queue.push(utterance);
+  processTTSQueue();
+}
 
 // Handle connect/disconnect
 connectButton.addEventListener('click', () => {
@@ -24,7 +129,7 @@ function connectToChat() {
     return;
   }
 
-  // Create new client using the imported tmi library
+  // Create new client
   client = new window.tmi.Client({
     connection: {
       secure: true,
@@ -51,6 +156,7 @@ function connectToChat() {
 
   client.on('message', (channel, tags, message, self) => {
     addChatMessage(tags['display-name'], message, tags);
+    queueTTSMessage(message, tags['display-name']);
   });
 }
 
