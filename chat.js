@@ -99,9 +99,10 @@ function splitMessageIntoChunks(text, maxLength = 180) {
   // Censor bad words for display purposes
   const censoredText = censorBadWords(text);
   
-  // Replace bad words with spaces for TTS
+  // Filter bad words for TTS
   let ttsText = text;
   if (ttsState.filterEnabled) {
+    // Replace bad words with spaces while preserving word boundaries
     badWordsData.forEach(category => {
       category.dictionary.forEach(entry => {
         const matches = entry.match.split('|');
@@ -343,7 +344,7 @@ function queueTTSMessage(text, username) {
     utterance.username = username;
     utterance.displayText = displayText;
 
-    // Enhanced word boundary handler
+    // Set up word boundary handling for filtered content
     if (ttsState.filterEnabled && ttsState.userSounds.has(username.toLowerCase())) {
       utterance.onboundary = (event) => handleWordBoundary(event, username);
     }
@@ -600,17 +601,38 @@ soundUploadBtn.addEventListener('click', () => {
 
 // Modified handleBoundary for word filtering
 function handleWordBoundary(event, username) {
+  if (!event || !event.target || !event.target.text) return;
+  
   if (event.name === 'word' && ttsState.filterEnabled) {
     const word = event.target.text.substring(event.charIndex, event.charIndex + event.charLength);
+    
+    // If the word contains bad words, pause TTS, play sound, then resume
     if (containsBadWords(word) && ttsState.userSounds.has(username.toLowerCase())) {
-      playUserSound(username.toLowerCase());
+      // Pause the current TTS
+      tts.pause();
+      
+      // Get and play the sound
+      const soundData = ttsState.userSounds.get(username.toLowerCase());
+      if (soundData && soundData.audio) {
+        const audioClone = soundData.audio.cloneNode();
+        
+        // When sound finishes, resume TTS
+        audioClone.onended = () => {
+          tts.resume();
+        };
+        
+        // Play the sound
+        audioClone.play().catch(err => {
+          console.error('Error playing sound:', err);
+          tts.resume(); // Resume TTS even if sound fails
+        });
+      } else {
+        // If no sound, just resume TTS
+        tts.resume();
+      }
     }
   }
 }
-
-// Initialize sound management
-updateSoundUserSelect();
-updateSoundList();
 
 function processTTSQueue() {
   if (!ttsState.enabled || ttsState.speaking || ttsState.queue.length === 0) {
@@ -645,3 +667,7 @@ function processTTSQueue() {
     resetTTS();
   }
 }
+
+// Initialize sound management
+updateSoundUserSelect();
+updateSoundList();
