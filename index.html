@@ -136,7 +136,7 @@
     .tts-user {
       display: grid;
       grid-template-columns: auto 1fr auto;
-      align-items: center;
+      align-items: start;
       gap: 8px;
       background: #fff;
       padding: 10px;
@@ -144,6 +144,35 @@
       border: 1px solid #e0e0e0;
       transition: all 0.2s ease;
       min-width: 0;
+    }
+
+    .tts-settings {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .tts-control {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+    }
+
+    .tts-control label {
+      color: #666;
+      min-width: 50px;
+    }
+
+    .tts-control input[type="range"] {
+      width: 100%;
+    }
+
+    .tts-control span {
+      min-width: 30px;
+      text-align: right;
+      color: #666;
     }
 
     .tts-user span {
@@ -161,6 +190,7 @@
       border: 1px solid #ddd;
       border-radius: 4px;
       font-size: 14px;
+      margin-bottom: 8px;
     }
 
     .tts-user button {

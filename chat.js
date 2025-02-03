@@ -16,7 +16,13 @@ const ttsUsersList = document.getElementById('tts-users');
 // TTS State with localStorage support
 const ttsState = {
   enabled: localStorage.getItem('ttsEnabled') === 'true' || true,
-  users: new Map(JSON.parse(localStorage.getItem('ttsUsers') || '[]')), 
+  users: new Map(JSON.parse(localStorage.getItem('ttsUsers') || '[]').map(([username, settings]) => {
+    // Convert legacy format to new format with speed and pitch
+    if (typeof settings === 'string') {
+      return [username, { voice: settings, speed: 1, pitch: 1 }];
+    }
+    return [username, settings];
+  })), 
   queue: [],
   speaking: false
 };
@@ -138,9 +144,41 @@ ttsAddForm.addEventListener('submit', (e) => {
 
 function addTTSUser(username, voiceName) {
   if (!ttsState.users.has(username)) {
-    ttsState.users.set(username, voiceName);
+    ttsState.users.set(username, {
+      voice: voiceName,
+      speed: 1,
+      pitch: 1
+    });
     saveTTSState();
     updateTTSUsersList();
+  }
+}
+
+function updateUserVoice(username, voiceName) {
+  if (ttsState.users.has(username)) {
+    const settings = ttsState.users.get(username);
+    settings.voice = voiceName;
+    ttsState.users.set(username, settings);
+    saveTTSState();
+    updateTTSUsersList();
+  }
+}
+
+function updateUserSpeed(username, speed) {
+  if (ttsState.users.has(username)) {
+    const settings = ttsState.users.get(username);
+    settings.speed = parseFloat(speed);
+    ttsState.users.set(username, settings);
+    saveTTSState();
+  }
+}
+
+function updateUserPitch(username, pitch) {
+  if (ttsState.users.has(username)) {
+    const settings = ttsState.users.get(username);
+    settings.pitch = parseFloat(pitch);
+    ttsState.users.set(username, settings);
+    saveTTSState();
   }
 }
 
@@ -150,17 +188,9 @@ function removeTTSUser(username) {
   updateTTSUsersList();
 }
 
-function updateUserVoice(username, voiceName) {
-  if (ttsState.users.has(username)) {
-    ttsState.users.set(username, voiceName);
-    saveTTSState();
-    updateTTSUsersList(); // This ensures the UI updates with the new voice
-  }
-}
-
 function updateTTSUsersList() {
   ttsUsersList.innerHTML = '';
-  ttsState.users.forEach((voiceName, username) => {
+  ttsState.users.forEach((settings, username) => {
     const div = document.createElement('div');
     div.className = 'tts-user';
     
@@ -168,16 +198,48 @@ function updateTTSUsersList() {
     const voiceSelect = `
       <select onchange="updateUserVoice('${username}', this.value)">
         ${voices.map(voice => 
-          `<option value="${voice.name}" ${voice.name === voiceName ? 'selected' : ''}>
+          `<option value="${voice.name}" ${voice.name === settings.voice ? 'selected' : ''}>
             ${voice.name} (${voice.lang})
           </option>`
         ).join('')}
       </select>
     `;
 
+    const speedControl = `
+      <div class="tts-control">
+        <label>Speed:</label>
+        <input type="range" 
+               min="0.5" 
+               max="2" 
+               step="0.1" 
+               value="${settings.speed}"
+               onchange="updateUserSpeed('${username}', this.value)"
+               oninput="this.nextElementSibling.textContent = this.value">
+        <span>${settings.speed}</span>
+      </div>
+    `;
+
+    const pitchControl = `
+      <div class="tts-control">
+        <label>Pitch:</label>
+        <input type="range" 
+               min="0.5" 
+               max="2" 
+               step="0.1" 
+               value="${settings.pitch}"
+               onchange="updateUserPitch('${username}', this.value)"
+               oninput="this.nextElementSibling.textContent = this.value">
+        <span>${settings.pitch}</span>
+      </div>
+    `;
+
     div.innerHTML = `
       <span>${username}</span>
-      ${voiceSelect}
+      <div class="tts-settings">
+        ${voiceSelect}
+        ${speedControl}
+        ${pitchControl}
+      </div>
       <button onclick="removeTTSUser('${username}')">×</button>
     `;
     ttsUsersList.appendChild(div);
@@ -198,9 +260,9 @@ function queueTTSMessage(text, username) {
   }
 
   const chunks = splitMessageIntoChunks(text);
-  const voiceName = ttsState.users.get(username.toLowerCase());
+  const userSettings = ttsState.users.get(username.toLowerCase());
   const voices = tts.getVoices();
-  const voice = voices.find(v => v.name === voiceName);
+  const voice = voices.find(v => v.name === userSettings.voice);
 
   chunks.forEach(chunk => {
     const utterance = new SpeechSynthesisUtterance(chunk);
@@ -209,8 +271,8 @@ function queueTTSMessage(text, username) {
       utterance.voice = voice;
     }
 
-    utterance.rate = 1;
-    utterance.pitch = 1;
+    utterance.rate = userSettings.speed;
+    utterance.pitch = userSettings.pitch;
     utterance.volume = 1;
 
     // Add error handling
