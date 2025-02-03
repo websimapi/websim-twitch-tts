@@ -18,87 +18,241 @@ const ttsState = {
   enabled: localStorage.getItem('ttsEnabled') === 'true' || true,
   users: new Map(JSON.parse(localStorage.getItem('ttsUsers') || '[]')), 
   queue: [],
-  speaking: false
+  speaking: false,
+  maxQueueSize: 50, // Limit queue size to prevent memory issues
+  lastResetTime: Date.now()
 };
 
-// Initialize TTS
+// Initialize TTS with error handling
 const tts = window.speechSynthesis;
+let ttsInitialized = false;
 
-// Break message into digestible chunks
-function splitMessageIntoChunks(text, maxLength = 200) {
-  // Skip if message contains URLs
-  if (/https?:\/\/[^\s]+/.test(text)) {
+// Enhanced message splitting with better chunk handling
+function splitMessageIntoChunks(text, maxLength = 150) {
+  try {
+    // Skip empty messages or those with just whitespace
+    if (!text || !text.trim()) {
+      return [];
+    }
+
+    // Skip if message contains URLs
+    if (/https?:\/\/[^\s]+/.test(text)) {
+      return [];
+    }
+
+    // Remove excessive whitespace and normalize
+    text = text.replace(/\s+/g, ' ').trim();
+
+    // Skip messages that are too long
+    if (text.length > 1000) {
+      console.warn('Message too long, skipping TTS');
+      return [];
+    }
+
+    // First split on punctuation
+    const punctuationSplit = text.split(/([.!?]+\s+)/g);
+    const chunks = [];
+    let currentChunk = '';
+
+    punctuationSplit.forEach(segment => {
+      // Skip empty segments
+      if (!segment.trim()) return;
+
+      if ((currentChunk + segment).length <= maxLength) {
+        currentChunk += segment;
+      } else {
+        if (currentChunk) chunks.push(currentChunk.trim());
+        
+        // Handle long segments
+        if (segment.length > maxLength) {
+          // Split long segments on natural breaks
+          const words = segment.split(/\s+/);
+          currentChunk = '';
+          
+          words.forEach(word => {
+            // Skip very long words
+            if (word.length > maxLength) {
+              console.warn('Skipping very long word:', word);
+              return;
+            }
+
+            if ((currentChunk + ' ' + word).length <= maxLength) {
+              currentChunk += (currentChunk ? ' ' : '') + word;
+            } else {
+              if (currentChunk) chunks.push(currentChunk.trim());
+              currentChunk = word;
+            }
+          });
+        } else {
+          currentChunk = segment;
+        }
+      }
+    });
+
+    if (currentChunk) chunks.push(currentChunk.trim());
+    
+    // Filter out empty chunks and limit total chunks
+    return chunks
+      .filter(chunk => chunk.length > 0)
+      .slice(0, 10); // Limit to 10 chunks max
+  } catch (error) {
+    console.error('Error splitting message:', error);
     return [];
   }
-
-  // First split on punctuation
-  const punctuationSplit = text.split(/([.!?]+\s+)/g);
-  const chunks = [];
-  let currentChunk = '';
-
-  punctuationSplit.forEach(segment => {
-    if ((currentChunk + segment).length <= maxLength) {
-      currentChunk += segment;
-    } else {
-      // If the current segment is too long, split on spaces
-      if (currentChunk) chunks.push(currentChunk.trim());
-      
-      if (segment.length > maxLength) {
-        // Split long segments on spaces
-        const words = segment.split(/\s+/);
-        currentChunk = '';
-        
-        words.forEach(word => {
-          if ((currentChunk + ' ' + word).length <= maxLength) {
-            currentChunk += (currentChunk ? ' ' : '') + word;
-          } else {
-            if (currentChunk) chunks.push(currentChunk.trim());
-            currentChunk = word;
-          }
-        });
-      } else {
-        currentChunk = segment;
-      }
-    }
-  });
-
-  if (currentChunk) chunks.push(currentChunk.trim());
-  return chunks.filter(chunk => chunk.length > 0);
 }
 
-// Reset TTS if it gets stuck
+// Enhanced TTS reset with timeout handling
 function resetTTS() {
-  if (tts.speaking) {
-    try {
-      tts.cancel();
-    } catch (error) {
-      console.error('Error canceling TTS:', error);
-    }
+  const now = Date.now();
+  const minResetInterval = 2000; // Minimum time between resets
+
+  // Prevent rapid resets
+  if (now - ttsState.lastResetTime < minResetInterval) {
+    return;
   }
-  ttsState.speaking = false;
-  // Clear the entire queue when resetting to prevent backlog issues
-  ttsState.queue = [];
-  
-  // Small delay before trying to process queue again
-  setTimeout(() => {
-    processTTSQueue();
-  }, 100);
+
+  try {
+    if (tts.speaking) {
+      tts.cancel();
+    }
+    ttsState.speaking = false;
+    ttsState.lastResetTime = now;
+    
+    // Clear queue if it's gotten too large
+    if (ttsState.queue.length > ttsState.maxQueueSize) {
+      ttsState.queue = ttsState.queue.slice(0, 10); // Keep only the next 10 items
+    }
+
+    setTimeout(() => {
+      processTTSQueue();
+    }, 500);
+  } catch (error) {
+    console.error('Error resetting TTS:', error);
+    ttsState.speaking = false;
+    ttsState.queue = [];
+  }
 }
 
-// Add automatic reset if TTS gets stuck
+// Enhanced TTS monitoring
 setInterval(() => {
-  if (ttsState.speaking && !tts.speaking) {
-    console.log("Detected stuck TTS state, resetting...");
-    resetTTS();
+  try {
+    if (ttsState.speaking && !tts.speaking) {
+      console.log("Detected stuck TTS state, resetting...");
+      resetTTS();
+    }
+
+    // Check if TTS is available
+    if (!ttsInitialized && tts.getVoices().length > 0) {
+      ttsInitialized = true;
+      populateVoiceList();
+    }
+  } catch (error) {
+    console.error('Error in TTS monitor:', error);
   }
 }, 1000);
 
-// Populate voice select with available voices
+// Enhanced voice population
 function populateVoiceList() {
-  const voices = tts.getVoices();
-  ttsVoiceSelect.innerHTML = voices.map(voice => 
-    `<option value="${voice.name}">${voice.name} (${voice.lang})</option>`
-  ).join('');
+  try {
+    const voices = tts.getVoices();
+    if (!voices.length) {
+      console.warn('No TTS voices available');
+      return;
+    }
+
+    ttsVoiceSelect.innerHTML = voices
+      .filter(voice => voice.name) // Ensure voice has a name
+      .map(voice => 
+        `<option value="${voice.name}">${voice.name} (${voice.lang})</option>`
+      ).join('');
+  } catch (error) {
+    console.error('Error populating voice list:', error);
+  }
+}
+
+// Enhanced TTS message queueing
+function queueTTSMessage(text, username) {
+  try {
+    if (!ttsState.enabled || 
+        !ttsState.users.has(username.toLowerCase()) || 
+        text.includes('!') ||
+        ttsState.queue.length >= ttsState.maxQueueSize) {
+      return;
+    }
+
+    const chunks = splitMessageIntoChunks(text);
+    const voiceName = ttsState.users.get(username.toLowerCase());
+    const voices = tts.getVoices();
+    const voice = voices.find(v => v.name === voiceName);
+
+    if (!voice) {
+      console.warn(`Voice not found for user ${username}`);
+      return;
+    }
+
+    chunks.forEach(chunk => {
+      const utterance = new SpeechSynthesisUtterance(chunk);
+      utterance.voice = voice;
+      utterance.rate = 1;
+      utterance.pitch = 1;
+      utterance.volume = 1;
+
+      // Add comprehensive error handling
+      utterance.onerror = (event) => {
+        console.error('TTS Error:', event);
+        resetTTS();
+      };
+
+      utterance.onend = () => {
+        // Mark chunk as completed
+        utterance.completed = true;
+      };
+
+      // Add timeout to prevent stuck utterances
+      utterance.timeout = setTimeout(() => {
+        if (!utterance.completed) {
+          console.warn('Utterance timeout - resetting TTS');
+          resetTTS();
+        }
+      }, 10000); // 10 second timeout
+
+      ttsState.queue.push(utterance);
+    });
+
+    processTTSQueue();
+  } catch (error) {
+    console.error('Error queueing TTS message:', error);
+    resetTTS();
+  }
+}
+
+// Enhanced queue processing
+function processTTSQueue() {
+  try {
+    if (!ttsState.enabled || ttsState.speaking || ttsState.queue.length === 0) {
+      return;
+    }
+
+    ttsState.speaking = true;
+    const utterance = ttsState.queue.shift();
+    
+    utterance.onend = () => {
+      clearTimeout(utterance.timeout);
+      ttsState.speaking = false;
+      setTimeout(processTTSQueue, 100); // Small delay between utterances
+    };
+
+    utterance.onerror = (event) => {
+      console.error('TTS Error during playback:', event);
+      clearTimeout(utterance.timeout);
+      resetTTS();
+    };
+
+    tts.speak(utterance);
+  } catch (error) {
+    console.error('Error processing TTS queue:', error);
+    resetTTS();
+  }
 }
 
 // Load TTS state from localStorage
@@ -200,96 +354,6 @@ function clearTTSQueue() {
     tts.cancel();
   }
   ttsState.speaking = false;
-}
-
-function queueTTSMessage(text, username) {
-  if (!ttsState.enabled || !ttsState.users.has(username.toLowerCase()) || text.includes('!')) {
-    return;
-  }
-
-  try {
-    const chunks = splitMessageIntoChunks(text);
-    const voiceName = ttsState.users.get(username.toLowerCase());
-    const voices = tts.getVoices();
-    const voice = voices.find(v => v.name === voiceName);
-
-    // Limit the number of chunks to prevent overload
-    const maxChunks = 5;
-    const limitedChunks = chunks.slice(0, maxChunks);
-
-    limitedChunks.forEach(chunk => {
-      const utterance = new SpeechSynthesisUtterance(chunk);
-      
-      if (voice) {
-        utterance.voice = voice;
-      }
-
-      utterance.rate = 1;
-      utterance.pitch = 1;
-      utterance.volume = 1;
-
-      // Add error handling
-      utterance.onerror = (event) => {
-        console.error('TTS Error:', event);
-        resetTTS();
-      };
-
-      // Limit queue size
-      if (ttsState.queue.length < 10) {
-        ttsState.queue.push(utterance);
-      }
-    });
-
-    // If we limited the chunks, add an indication
-    if (chunks.length > maxChunks) {
-      const indicator = new SpeechSynthesisUtterance("Message truncated for length");
-      indicator.volume = 0.8;
-      ttsState.queue.push(indicator);
-    }
-
-    processTTSQueue();
-  } catch (error) {
-    console.error('Error queuing TTS message:', error);
-    resetTTS();
-  }
-}
-
-function processTTSQueue() {
-  if (!ttsState.enabled || ttsState.speaking || ttsState.queue.length === 0) {
-    return;
-  }
-
-  try {
-    ttsState.speaking = true;
-    const utterance = ttsState.queue.shift();
-    
-    utterance.onend = () => {
-      ttsState.speaking = false;
-      // Small delay between messages
-      setTimeout(() => {
-        processTTSQueue();
-      }, 50);
-    };
-
-    utterance.onerror = (event) => {
-      console.error('TTS Error during playback:', event);
-      resetTTS();
-    };
-
-    tts.speak(utterance);
-
-    // Set a timeout to reset if the message takes too long
-    setTimeout(() => {
-      if (ttsState.speaking) {
-        console.log("Message taking too long, resetting...");
-        resetTTS();
-      }
-    }, 10000); // 10 second timeout
-
-  } catch (error) {
-    console.error('TTS Speak Error:', error);
-    resetTTS();
-  }
 }
 
 // Handle connect/disconnect
