@@ -199,11 +199,11 @@ function updateQueueDisplay() {
   const currentDisplay = document.getElementById('tts-current-display');
   
   // Update Currently Reading section
-  if (ttsState.speaking && tts.speaking) {
+  if (ttsState.speaking && ttsState.currentUtterance) {
     currentDisplay.innerHTML = `
       <div class="current-item">
         <span class="current-icon">🔊</span>
-        <span class="current-text">${tts.speaking ? ttsState.currentUtterance.text : ''}</span>
+        <span class="current-text">${ttsState.currentUtterance.text}</span>
         <span class="current-username">${ttsState.currentUtterance.username}</span>
       </div>
     `;
@@ -268,13 +268,17 @@ function processTTSQueue() {
 
   ttsState.speaking = true;
   const utterance = ttsState.queue.shift();
-  ttsState.currentUtterance = utterance; // Store current utterance
+  ttsState.currentUtterance = utterance;
   updateQueueDisplay();
   
   utterance.onend = () => {
     ttsState.speaking = false;
     ttsState.currentUtterance = null;
     processTTSQueue();
+  };
+
+  utterance.onstart = () => {
+    updateQueueDisplay(); // Update display when speech starts
   };
 
   utterance.onerror = () => {
