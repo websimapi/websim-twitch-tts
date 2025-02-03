@@ -66,8 +66,25 @@ const ttsState = {
   queue: [],
   speaking: false,
   currentUtterance: null,
-  userSounds: new Map(JSON.parse(localStorage.getItem('userSounds') || '[]'))
+  userSounds: new Map()
 };
+
+// Load sounds from localStorage on startup
+try {
+  const savedSounds = JSON.parse(localStorage.getItem('userSounds') || '[]');
+  savedSounds.forEach(([username, soundData]) => {
+    // Create audio element from base64
+    const audio = new Audio();
+    audio.src = soundData.base64;
+    ttsState.userSounds.set(username, {
+      audio: audio,
+      name: soundData.name,
+      base64: soundData.base64
+    });
+  });
+} catch (error) {
+  console.error('Error loading saved sounds:', error);
+}
 
 // Initialize TTS
 const tts = window.speechSynthesis;
@@ -326,16 +343,9 @@ function queueTTSMessage(text, username) {
     utterance.username = username;
     utterance.displayText = displayText;
 
-    // Add sound handling for filtered words
+    // Enhanced word boundary handler
     if (ttsState.filterEnabled && ttsState.userSounds.has(username.toLowerCase())) {
-      utterance.onboundary = (event) => {
-        if (event.name === 'word') {
-          const word = event.target.text.substring(event.charIndex, event.charIndex + event.charLength);
-          if (containsBadWords(word)) {
-            playUserSound(username.toLowerCase());
-          }
-        }
-      };
+      utterance.onboundary = (event) => handleWordBoundary(event, username);
     }
 
     utterance.onerror = (event) => {
@@ -521,12 +531,10 @@ function updateSoundList() {
 // Play user's custom sound
 function playUserSound(username) {
   const soundData = ttsState.userSounds.get(username);
-  if (soundData) {
-    const audio = new Audio();
-    audio.src = soundData.data; 
-    audio.play().catch(error => {
-      console.error('Error playing sound:', error);
-    });
+  if (soundData && soundData.audio) {
+    // Clone the audio to allow multiple simultaneous plays
+    const audioClone = soundData.audio.cloneNode();
+    audioClone.play();
   }
 }
 
@@ -544,8 +552,8 @@ function saveUserSounds() {
   const serializedSounds = Array.from(ttsState.userSounds.entries()).map(([username, soundData]) => [
     username,
     {
-      data: soundData.data, 
-      name: soundData.name
+      name: soundData.name,
+      base64: soundData.base64
     }
   ]);
   localStorage.setItem('userSounds', JSON.stringify(serializedSounds));
@@ -566,25 +574,39 @@ soundUploadBtn.addEventListener('click', () => {
     return;
   }
 
-  // Remove old sound if exists
-  if (ttsState.userSounds.has(username)) {
-    ttsState.userSounds.delete(username);
-  }
-
   // Convert file to base64
   const reader = new FileReader();
   reader.onload = (e) => {
+    const base64Data = e.target.result;
+    
+    // Create and test audio element
+    const audio = new Audio();
+    audio.src = base64Data;
+    
+    // Store the sound data
     ttsState.userSounds.set(username, {
-      data: e.target.result,
-      name: file.name
+      audio: audio,
+      name: file.name,
+      base64: base64Data
     });
+
     saveUserSounds();
     updateSoundList();
+    soundUpload.value = '';
   };
-  reader.readAsDataURL(file);
   
-  soundUpload.value = '';
+  reader.readAsDataURL(file);
 });
+
+// Modified handleBoundary for word filtering
+function handleWordBoundary(event, username) {
+  if (event.name === 'word' && ttsState.filterEnabled) {
+    const word = event.target.text.substring(event.charIndex, event.charIndex + event.charLength);
+    if (containsBadWords(word) && ttsState.userSounds.has(username.toLowerCase())) {
+      playUserSound(username.toLowerCase());
+    }
+  }
+}
 
 // Initialize sound management
 updateSoundUserSelect();
