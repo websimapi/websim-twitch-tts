@@ -139,23 +139,29 @@
       align-items: start;
       gap: 8px;
       background: #fff;
-      padding: 10px;
+      padding: 12px;
       border-radius: 6px;
       border: 1px solid #e0e0e0;
       transition: all 0.2s ease;
       min-width: 0;
-      max-width: 100%;
-      width: 100%;
+    }
+
+    .tts-user .remove-btn {
+      padding: 4px 8px;
+      background: #dc3545;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.2s ease;
+      height: fit-content;
+    }
+
+    .tts-user .remove-btn:hover {
+      background: #c82333;
     }
 
     .tts-settings {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      width: 100%;
-    }
-
-    .basic-settings {
       display: flex;
       flex-direction: column;
       gap: 8px;
@@ -282,30 +288,33 @@
       background: #6c757d;
     }
 
-    .advanced-settings {
-      display: none;
-      margin-top: 10px;
-      padding-top: 10px;
-      border-top: 1px solid #eee;
-    }
-
-    .advanced-settings.show {
-      display: block;
-    }
-
     .toggle-advanced {
-      background: none;
-      border: none;
-      color: #6441A4;
-      cursor: pointer;
-      padding: 5px;
+      background: #f0f0f0;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 4px 8px;
       font-size: 12px;
-      text-decoration: underline;
-      margin-top: 5px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin: 4px 0;
+      width: 100%;
     }
 
     .toggle-advanced:hover {
-      color: #7454B3;
+      background: #e8e8e8;
+    }
+
+    .toggle-icon {
+      font-size: 10px;
+      transition: transform 0.2s;
+    }
+
+    .advanced-settings {
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid #eee;
     }
 
     .system-message {
@@ -318,42 +327,6 @@
     .system-text {
       color: #6441A4;
       font-style: italic;
-    }
-
-    .effects-controls {
-      margin-top: 10px;
-      padding-top: 10px;
-      border-top: 1px solid #eee;
-    }
-
-    .effects-controls .tts-control {
-      margin: 5px 0;
-    }
-
-    input[type="range"] {
-      -webkit-appearance: none;
-      height: 5px;
-      background: #ddd;
-      border-radius: 5px;
-      outline: none;
-    }
-
-    input[type="range"]::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      width: 15px;
-      height: 15px;
-      background: #6441A4;
-      border-radius: 50%;
-      cursor: pointer;
-    }
-
-    input[type="range"]::-moz-range-thumb {
-      width: 15px;
-      height: 15px;
-      background: #6441A4;
-      border-radius: 50%;
-      cursor: pointer;
-      border: none;
     }
   </style>
 </head>
