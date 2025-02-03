@@ -23,20 +23,21 @@ function containsBadWords(text) {
   );
 }
 
-// Check if word contains any bad words and return censored version
+// Check if text contains any bad words and return censored version
 function censorBadWords(text) {
-  let censoredText = text.toLowerCase();
-  
-  badWordsData.forEach(category => 
-    category.dictionary.forEach(entry => {
-      const matches = entry.match.split('|');
-      matches.forEach(match => {
-        const matchRegex = new RegExp(match.toLowerCase(), 'gi');
-        censoredText = censoredText.replace(matchRegex, '*'.repeat(match.length));
+  let censoredText = text;
+  if (ttsState.filterEnabled) {
+    badWordsData.forEach(category => {
+      category.dictionary.forEach(entry => {
+        const matches = entry.match.split('|');
+        matches.forEach(match => {
+          // Create a regex that matches the word with word boundaries
+          const regex = new RegExp(`\\b${match}\\b`, 'gi');
+          censoredText = censoredText.replace(regex, '*'.repeat(match.length));
+        });
       });
-    })
-  );
-  
+    });
+  }
   return censoredText;
 }
 
@@ -66,18 +67,32 @@ const ttsState = {
 // Initialize TTS
 const tts = window.speechSynthesis;
 
-// Break message into digestible chunks
+// Split message into digestible chunks
 function splitMessageIntoChunks(text, maxLength = 180) {
-  // Skip if message contains URLs
+  // Skip if message contains URLs when filter is enabled
   if (ttsState.filterEnabled && /https?:\/\/[^\s]+/.test(text)) {
     return [];
   }
 
-  // Censor bad words if filter is enabled
-  const processedText = ttsState.filterEnabled ? censorBadWords(text) : text;
+  // Censor bad words for display purposes
+  const censoredText = censorBadWords(text);
+  
+  // Replace bad words with spaces for TTS
+  let ttsText = text;
+  if (ttsState.filterEnabled) {
+    badWordsData.forEach(category => {
+      category.dictionary.forEach(entry => {
+        const matches = entry.match.split('|');
+        matches.forEach(match => {
+          const regex = new RegExp(`\\b${match}\\b`, 'gi');
+          ttsText = ttsText.replace(regex, ' ');
+        });
+      });
+    });
+  }
 
   // First split on punctuation
-  const punctuationSplit = processedText.split(/([.!?]+\s+)/g);
+  const punctuationSplit = ttsText.split(/([.!?]+\s+)/g);
   const chunks = [];
   let currentChunk = '';
 
@@ -85,7 +100,7 @@ function splitMessageIntoChunks(text, maxLength = 180) {
     if ((currentChunk + segment).length <= maxLength) {
       currentChunk += segment;
     } else {
-      if (currentChunk) chunks.push(currentChunk.trim());
+      if (currentChunk) chunks.push([currentChunk.trim(), censorBadWords(currentChunk.trim())]);
       
       if (segment.length > maxLength) {
         // Split long segments on spaces
@@ -96,7 +111,7 @@ function splitMessageIntoChunks(text, maxLength = 180) {
           if ((currentChunk + ' ' + word).length <= maxLength) {
             currentChunk += (currentChunk ? ' ' : '') + word;
           } else {
-            if (currentChunk) chunks.push(currentChunk.trim());
+            if (currentChunk) chunks.push([currentChunk.trim(), censorBadWords(currentChunk.trim())]);
             currentChunk = word;
           }
         });
@@ -106,8 +121,8 @@ function splitMessageIntoChunks(text, maxLength = 180) {
     }
   });
 
-  if (currentChunk) chunks.push(currentChunk.trim());
-  return chunks.filter(chunk => chunk.length > 0);
+  if (currentChunk) chunks.push([currentChunk.trim(), censorBadWords(currentChunk.trim())]);
+  return chunks.filter(chunk => chunk[0].length > 0);
 }
 
 // Reset TTS if it gets stuck
@@ -257,7 +272,7 @@ function updateQueueDisplay() {
     currentDisplay.innerHTML = `
       <div class="current-item">
         <span class="current-icon">🔊</span>
-        <span class="current-text">${ttsState.currentUtterance.text}</span>
+        <span class="current-text">${ttsState.currentUtterance.displayText}</span>
         <span class="current-username">${ttsState.currentUtterance.username}</span>
       </div>
     `;
@@ -275,7 +290,7 @@ function updateQueueDisplay() {
     <div class="queue-item">
       <span class="queue-number">${index + 1}.</span>
       <span class="queue-username">${utterance.username}</span>
-      <span class="queue-text">${utterance.text}</span>
+      <span class="queue-text">${utterance.displayText}</span>
     </div>
   `).join('');
 }
@@ -290,8 +305,8 @@ function queueTTSMessage(text, username) {
   const voices = tts.getVoices();
   const voice = voices.find(v => v.name === voiceName);
 
-  chunks.forEach(chunk => {
-    const utterance = new SpeechSynthesisUtterance(chunk);
+  chunks.forEach(([ttsText, displayText]) => {
+    const utterance = new SpeechSynthesisUtterance(ttsText);
     
     if (voice) {
       utterance.voice = voice;
@@ -300,7 +315,8 @@ function queueTTSMessage(text, username) {
     utterance.rate = 1;
     utterance.pitch = 1;
     utterance.volume = 1;
-    utterance.username = username; // Store username with utterance
+    utterance.username = username;
+    utterance.displayText = displayText; // Store censored version for display
 
     utterance.onerror = (event) => {
       console.error('TTS Error:', event);
@@ -473,7 +489,7 @@ function addChatMessage(username, message, tags) {
 
   // Add message
   const messageText = document.createElement('span');
-  messageText.textContent = `: ${message}`;
+  messageText.textContent = `: ${censorBadWords(message)}`;
   messageDiv.appendChild(messageText);
 
   // Add to chat box and scroll to bottom
