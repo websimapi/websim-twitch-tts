@@ -13,13 +13,43 @@ const ttsUsernameInput = document.getElementById('tts-username');
 const ttsVoiceSelect = document.getElementById('tts-voice-select');
 const ttsUsersList = document.getElementById('tts-users');
 
+// Add audio context and effects setup
+let audioContext = null;
+let audioDestination = null;
+
+function initAudioContext() {
+  if (!audioContext) {
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    audioDestination = audioContext.destination;
+  }
+}
+
 // TTS State with localStorage support
 const ttsState = {
   enabled: localStorage.getItem('ttsEnabled') === 'true' || true,
   users: new Map(JSON.parse(localStorage.getItem('ttsUsers') || '[]').map(([username, settings]) => {
-    // Convert legacy format to new format with speed and pitch
+    // Convert legacy format to new format with effects
     if (typeof settings === 'string') {
-      return [username, { voice: settings, speed: 1, pitch: 1 }];
+      return [username, { 
+        voice: settings, 
+        speed: 1, 
+        pitch: 1,
+        effects: {
+          reverb: 0,
+          chorus: 0,
+          distortion: 0,
+          echo: 0
+        }
+      }];
+    }
+    // Add effects if they don't exist
+    if (!settings.effects) {
+      settings.effects = {
+        reverb: 0,
+        chorus: 0,
+        distortion: 0,
+        echo: 0
+      };
     }
     return [username, settings];
   })), 
@@ -119,6 +149,106 @@ tts.onvoiceschanged = () => {
 populateVoiceList();
 loadTTSState();
 
+// Add effect update functions
+function updateUserEffect(username, effect, value) {
+  if (ttsState.users.has(username)) {
+    const settings = ttsState.users.get(username);
+    settings.effects[effect] = parseFloat(value);
+    ttsState.users.set(username, settings);
+    saveTTSState();
+  }
+}
+
+// Update the createAudioGraph function to handle effects
+function createAudioGraph(utterance, userSettings) {
+  initAudioContext();
+  
+  // Create media stream source
+  const source = audioContext.createMediaStreamSource(utterance.audioStream);
+  
+  let currentNode = source;
+
+  // Reverb
+  if (userSettings.effects.reverb > 0) {
+    const reverb = audioContext.createConvolver();
+    const reverbTime = userSettings.effects.reverb * 3; // 0-3 seconds
+    
+    // Create impulse response
+    const rate = audioContext.sampleRate;
+    const length = rate * reverbTime;
+    const impulse = audioContext.createBuffer(2, length, rate);
+    
+    for (let channel = 0; channel < 2; channel++) {
+      const data = impulse.getChannelData(channel);
+      for (let i = 0; i < length; i++) {
+        data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, reverbTime);
+      }
+    }
+    
+    reverb.buffer = impulse;
+    currentNode.connect(reverb);
+    currentNode = reverb;
+  }
+
+  // Chorus
+  if (userSettings.effects.chorus > 0) {
+    const delay = audioContext.createDelay();
+    const depth = userSettings.effects.chorus * 0.02; // 0-20ms
+    delay.delayTime.value = depth;
+    
+    const chorus = audioContext.createGain();
+    chorus.gain.value = 0.5;
+    
+    currentNode.connect(delay);
+    delay.connect(chorus);
+    currentNode.connect(chorus);
+    currentNode = chorus;
+  }
+
+  // Distortion
+  if (userSettings.effects.distortion > 0) {
+    const distortion = audioContext.createWaveShaper();
+    const amount = userSettings.effects.distortion * 400;
+    
+    function makeDistortionCurve(amount) {
+      const samples = 44100;
+      const curve = new Float32Array(samples);
+      for (let i = 0; i < samples; ++i) {
+        const x = i * 2 / samples - 1;
+        curve[i] = (Math.PI + amount) * x / (Math.PI + amount * Math.abs(x));
+      }
+      return curve;
+    }
+    
+    distortion.curve = makeDistortionCurve(amount);
+    distortion.oversample = '4x';
+    
+    currentNode.connect(distortion);
+    currentNode = distortion;
+  }
+
+  // Echo
+  if (userSettings.effects.echo > 0) {
+    const echo = audioContext.createDelay();
+    const feedback = audioContext.createGain();
+    const echoGain = audioContext.createGain();
+    
+    echo.delayTime.value = userSettings.effects.echo * 0.5; // 0-500ms
+    feedback.gain.value = 0.4;
+    echoGain.gain.value = 0.5;
+    
+    currentNode.connect(echo);
+    echo.connect(feedback);
+    feedback.connect(echo);
+    echo.connect(echoGain);
+    currentNode.connect(echoGain);
+    currentNode = echoGain;
+  }
+
+  // Connect to destination
+  currentNode.connect(audioDestination);
+}
+
 // TTS Controls
 ttsToggleButton.addEventListener('click', () => {
   ttsState.enabled = !ttsState.enabled;
@@ -147,7 +277,13 @@ function addTTSUser(username, voiceName) {
     ttsState.users.set(username, {
       voice: voiceName,
       speed: 1,
-      pitch: 1
+      pitch: 1,
+      effects: {
+        reverb: 0,
+        chorus: 0,
+        distortion: 0,
+        echo: 0
+      }
     });
     saveTTSState();
     updateTTSUsersList();
@@ -233,12 +369,36 @@ function updateTTSUsersList() {
       </div>
     `;
 
+    const createEffectControl = (name, effect) => `
+      <div class="tts-control">
+        <label>${name}:</label>
+        <input type="range" 
+               min="0" 
+               max="1" 
+               step="0.1" 
+               value="${settings.effects[effect]}"
+               onchange="updateUserEffect('${username}', '${effect}', this.value)"
+               oninput="this.nextElementSibling.textContent = this.value">
+        <span>${settings.effects[effect]}</span>
+      </div>
+    `;
+
+    const effectControls = `
+      <div class="effects-controls">
+        ${createEffectControl('Reverb', 'reverb')}
+        ${createEffectControl('Chorus', 'chorus')}
+        ${createEffectControl('Distortion', 'distortion')}
+        ${createEffectControl('Echo', 'echo')}
+      </div>
+    `;
+
     div.innerHTML = `
       <span>${username}</span>
       <div class="tts-settings">
         ${voiceSelect}
         ${speedControl}
         ${pitchControl}
+        ${effectControls}
       </div>
       <button onclick="removeTTSUser('${username}')">×</button>
     `;
@@ -274,6 +434,13 @@ function queueTTSMessage(text, username) {
     utterance.rate = userSettings.speed;
     utterance.pitch = userSettings.pitch;
     utterance.volume = 1;
+
+    // Add audio processing when speaking starts
+    utterance.onstart = (event) => {
+      if (event.utterance.audioStream) {
+        createAudioGraph(utterance, userSettings);
+      }
+    };
 
     // Add error handling
     utterance.onerror = (event) => {
