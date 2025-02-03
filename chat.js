@@ -557,14 +557,25 @@ function updateSoundList() {
   });
 }
 
-// Play user's custom sound
+// Play user's custom sound and return a promise that resolves when the sound finishes
 function playUserSound(username) {
-  const soundData = ttsState.userSounds.get(username);
-  if (soundData && soundData.audio) {
-    // Clone the audio to allow multiple simultaneous plays
-    const audioClone = soundData.audio.cloneNode();
-    audioClone.play();
-  }
+  return new Promise((resolve, reject) => {
+    const soundData = ttsState.userSounds.get(username);
+    if (soundData && soundData.audio) {
+      // Clone the audio to allow multiple simultaneous plays
+      const audioClone = soundData.audio.cloneNode();
+      audioClone.onended = () => {
+        resolve();
+      };
+      audioClone.onerror = (e) => {
+        console.error('Audio playback error:', e);
+        reject(e);
+      };
+      audioClone.play().catch(reject);
+    } else {
+      resolve(); // Resolve immediately if no sound
+    }
+  });
 }
 
 // Delete user's custom sound
@@ -642,14 +653,20 @@ function processTTSQueue() {
   ttsState.currentUtterance = utterance;
   updateQueueDisplay();
 
-  // Check if this is a sound effect marker
+  // Handle sound effect marker
   if (utterance.text === '__SOUND_EFFECT__') {
-    if (ttsState.userSounds.has(utterance.username.toLowerCase())) {
-      playUserSound(utterance.username.toLowerCase());
-    }
-    ttsState.speaking = false;
-    ttsState.currentUtterance = null;
-    processTTSQueue(); // Continue to next item
+    playUserSound(utterance.username.toLowerCase())
+      .then(() => {
+        ttsState.speaking = false;
+        ttsState.currentUtterance = null;
+        processTTSQueue(); // Continue to next item
+      })
+      .catch(error => {
+        console.error('Error playing sound effect:', error);
+        ttsState.speaking = false;
+        ttsState.currentUtterance = null;
+        processTTSQueue(); // Continue despite error
+      });
     return;
   }
   
