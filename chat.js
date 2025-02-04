@@ -67,11 +67,48 @@ const ttsState = {
 // Initialize TTS
 const tts = window.speechSynthesis;
 
+// Function to extract title and author from URL (mock implementation)
+async function getMediaInfo(url) {
+  // This would need to be implemented with proper API calls
+  // For now, return null to indicate no info available
+  return null;
+}
+
+// Function to check if URL is from supported music service
+function isMusicServiceUrl(url) {
+  return url.match(/youtube\.com|youtu\.be|spotify\.com|soundcloud\.com/i);
+}
+
+// Function to create clickable link element
+function createLinkElement(url, metadata) {
+  const link = document.createElement('a');
+  link.href = url;
+  link.target = '_blank';
+  link.textContent = url;
+  link.style.color = '#6441A4';
+  link.style.textDecoration = 'none';
+  
+  const container = document.createElement('span');
+  container.appendChild(link);
+  
+  if (metadata) {
+    const metadataSpan = document.createElement('span');
+    metadataSpan.textContent = ` (${metadata})`;
+    metadataSpan.style.color = '#666';
+    container.appendChild(metadataSpan);
+  }
+  
+  return container;
+}
+
 // Split message into digestible chunks
 function splitMessageIntoChunks(text, maxLength = 180) {
-  // Skip if message contains URLs when filter is enabled
-  if (ttsState.filterEnabled && /https?:\/\/[^\s]+/.test(text)) {
-    return [];
+  // Skip if message contains URLs
+  if (/https?:\/\/[^\s]+/.test(text)) {
+    // Extract non-URL parts for TTS
+    const parts = text.split(/https?:\/\/[^\s]+/);
+    const nonUrlText = parts.join(' ').trim();
+    return nonUrlText ? splitMessageIntoChunks(nonUrlText) : [];
   }
 
   // Censor bad words for display purposes
@@ -424,25 +461,22 @@ function addChatMessage(username, message, tags) {
   messageDiv.className = 'chat-message';
 
   // Add timestamp
-  const timestamp = new Date().toLocaleTimeString();
-  const timestampSpan = document.createElement('span');
-  timestampSpan.className = 'timestamp';
-  timestampSpan.textContent = timestamp;
-  messageDiv.appendChild(timestampSpan);
+  const timestamp = document.createElement('span');
+  timestamp.className = 'timestamp';
+  timestamp.textContent = new Date().toLocaleTimeString();
+  messageDiv.appendChild(timestamp);
 
   // Add username with click handler
   const usernameSpan = document.createElement('span');
   usernameSpan.className = 'username';
   usernameSpan.textContent = username;
   
-  // Only add click handler if user isn't already in TTS list
   if (!ttsState.users.has(username.toLowerCase())) {
     usernameSpan.classList.add('clickable');
     usernameSpan.title = 'Click to add TTS for this user';
     usernameSpan.addEventListener('click', () => {
       const voices = tts.getVoices();
       if (voices.length) {
-        // Pick a random voice
         const randomVoice = voices[Math.floor(Math.random() * voices.length)].name;
         addTTSUser(username.toLowerCase(), randomVoice);
       }
@@ -487,16 +521,66 @@ function addChatMessage(username, message, tags) {
     return; // Don't process further if it was a command
   }
 
-  // Add message
-  const messageText = document.createElement('span');
-  messageText.textContent = `: ${censorBadWords(message)}`;
-  messageDiv.appendChild(messageText);
+  // Add colon after username
+  const colonSpan = document.createElement('span');
+  colonSpan.textContent = ': ';
+  messageDiv.appendChild(colonSpan);
+
+  // Process message content
+  const messageContent = document.createElement('span');
+  let remainingText = message;
+  
+  // Find URLs in message
+  const urlRegex = /(https?:\/\/[^\s]+)/gi;
+  const urlMatches = [...message.matchAll(urlRegex)];
+  
+  if (urlMatches.length > 0) {
+    let lastIndex = 0;
+    
+    for (const match of urlMatches) {
+      const url = match[0];
+      const beforeText = message.substring(lastIndex, match.index);
+      
+      if (beforeText) {
+        const textNode = document.createTextNode(censorBadWords(beforeText));
+        messageContent.appendChild(textNode);
+      }
+      
+      if (isMusicServiceUrl(url)) {
+        const linkElement = createLinkElement(url, ''); // Initially empty metadata
+        messageContent.appendChild(linkElement);
+        
+        // Fetch and update metadata asynchronously
+        getMediaInfo(url).then(metadata => {
+          if (metadata) {
+            linkElement.lastChild.textContent = ` (${metadata})`;
+          }
+        });
+      } else {
+        const textNode = document.createTextNode(url);
+        messageContent.appendChild(textNode);
+      }
+      
+      lastIndex = match.index + url.length;
+    }
+    
+    // Add any remaining text after the last URL
+    const afterText = message.substring(lastIndex);
+    if (afterText) {
+      const textNode = document.createTextNode(censorBadWords(afterText));
+      messageContent.appendChild(textNode);
+    }
+  } else {
+    messageContent.textContent = censorBadWords(message);
+  }
+  
+  messageDiv.appendChild(messageContent);
 
   // Add to chat box and scroll to bottom
   chatBox.appendChild(messageDiv);
   chatBox.scrollTop = chatBox.scrollHeight;
 
-  // Limit messages to prevent memory issues
+  // Limit messages
   while (chatBox.children.length > 500) {
     chatBox.removeChild(chatBox.firstChild);
   }
