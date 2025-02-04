@@ -494,6 +494,7 @@
         <button id="gamble-settings-btn" class="control-btn toggle-btn">Gamble Settings</button>
         <button id="auto-add-user-toggle" class="control-btn toggle-btn">Auto Add User: On</button>
         <button id="custom-commands-btn" class="control-btn add-btn">Custom Commands</button>
+        <button id="export-import-settings-btn" class="control-btn add-btn">Export/Import Settings</button>
       </div>
 
       <!-- Gamble Settings Modal -->
@@ -538,6 +539,30 @@
         </div>
       </div>
       
+      <!-- Export/Import Settings Modal -->
+      <div id="export-import-modal" class="modal">
+        <div class="modal-content">
+          <h4>Export / Import Settings</h4>
+          <div style="margin-bottom: 15px;">
+            <h5>Export Settings</h5>
+            <textarea id="export-settings-textarea" rows="10" style="width:100%;resize:vertical;" readonly></textarea>
+            <div style="margin-top: 5px;">
+              <button id="copy-export-btn" class="control-btn add-btn">Copy to Clipboard</button>
+            </div>
+          </div>
+          <div style="margin-bottom: 15px;">
+            <h5>Import Settings</h5>
+            <textarea id="import-settings-textarea" rows="10" style="width:100%;resize:vertical;" placeholder='Paste exported JSON here'></textarea>
+            <div style="margin-top: 5px;">
+              <button id="import-settings-btn" class="control-btn add-btn">Import Settings</button>
+            </div>
+          </div>
+          <div style="text-align:right;">
+            <button id="close-export-import-btn" class="control-btn clear-btn">Close</button>
+          </div>
+        </div>
+      </div>
+
       <form id="tts-add-form">
         <input type="text" id="tts-username" placeholder="Enter username for TTS">
         <select id="tts-voice-select">
@@ -571,6 +596,7 @@
   <script src="tmi.js"></script>
   <script src="chat.js"></script>
   <script src="customCommands.js"></script>
+  <script src="exportImport.js"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516" integrity="sha512-8DS7rgIrAmghBFwoOTujcf6D9rXvH8xm8JQ1Ja01h9QX8EzXldiszufYa4IFfKdLUKTTrnSFXLDkUEOTrZQ8Qg==" data-cf-beacon='{"version":"2024.11.0","token":"4c6229722a6346bc8eb5cb0e5eae5d41","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 </body>
 </html>
