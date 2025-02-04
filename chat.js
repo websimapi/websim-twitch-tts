@@ -541,6 +541,9 @@ function addChatMessage(username, message, tags) {
       `;
       chatBox.appendChild(disabledMessage);
       chatBox.scrollTop = chatBox.scrollHeight;
+      
+      // Queue TTS message about disabled state
+      queueTTSMessage("Gamble Voice command is currently disabled", "System");
       return;
     }
 
