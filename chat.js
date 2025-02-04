@@ -557,17 +557,20 @@ function updateSoundList() {
   });
 }
 
-// Play user's custom sound
 function playUserSound(username) {
-  const soundData = ttsState.userSounds.get(username);
-  if (soundData && soundData.audio) {
-    // Clone the audio to allow multiple simultaneous plays
-    const audioClone = soundData.audio.cloneNode();
-    audioClone.play();
-  }
+  return new Promise((resolve) => {
+    const soundData = ttsState.userSounds.get(username);
+    if (soundData && soundData.audio) {
+      const audioClone = soundData.audio.cloneNode();
+      audioClone.onended = resolve;
+      audioClone.onerror = resolve;
+      audioClone.play().catch(resolve);
+    } else {
+      resolve();
+    }
+  });
 }
 
-// Delete user's custom sound
 function deleteUserSound(username) {
   if (ttsState.userSounds.has(username)) {
     ttsState.userSounds.delete(username);
@@ -645,14 +648,42 @@ function processTTSQueue() {
   // Check if this is a sound effect marker
   if (utterance.text === '__SOUND_EFFECT__') {
     if (ttsState.userSounds.has(utterance.username.toLowerCase())) {
-      playUserSound(utterance.username.toLowerCase());
+      const soundData = ttsState.userSounds.get(utterance.username.toLowerCase());
+      
+      // Create a clone of the audio to allow multiple plays
+      const audioClone = soundData.audio.cloneNode();
+      
+      // Set up promise to resolve when sound completes
+      const soundPromise = new Promise((resolve) => {
+        audioClone.onended = resolve;
+        audioClone.onerror = resolve; // Also resolve on error to prevent getting stuck
+      });
+      
+      // Play the sound and wait for it to complete
+      audioClone.play()
+        .then(() => soundPromise)
+        .then(() => {
+          ttsState.speaking = false;
+          ttsState.currentUtterance = null;
+          processTTSQueue(); // Continue to next item
+        })
+        .catch(() => {
+          // Handle any errors by continuing the queue
+          ttsState.speaking = false;
+          ttsState.currentUtterance = null;
+          processTTSQueue();
+        });
+      return;
+    } else {
+      // No sound file, continue immediately
+      ttsState.speaking = false;
+      ttsState.currentUtterance = null;
+      processTTSQueue();
+      return;
     }
-    ttsState.speaking = false;
-    ttsState.currentUtterance = null;
-    processTTSQueue(); // Continue to next item
-    return;
   }
-  
+
+  // Regular TTS utterance handling
   utterance.onend = () => {
     ttsState.speaking = false;
     ttsState.currentUtterance = null;
