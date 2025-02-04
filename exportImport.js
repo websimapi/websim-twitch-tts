@@ -71,6 +71,10 @@
         if(window.refreshCustomCommandsUI) {
           window.refreshCustomCommandsUI();
         }
+        // Fix TTS dropdown and other voice-dependent menus by repopulating voices
+        if(window.populateVoiceList) {
+          window.populateVoiceList();
+        }
         alert('Settings imported successfully.');
       } catch (err) {
         alert('Failed to import settings: Invalid JSON.');
