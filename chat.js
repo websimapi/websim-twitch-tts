@@ -53,10 +53,6 @@ const ttsUsernameInput = document.getElementById('tts-username');
 const ttsVoiceSelect = document.getElementById('tts-voice-select');
 const ttsUsersList = document.getElementById('tts-users');
 const ttsFilterToggleButton = document.getElementById('tts-filter-toggle');
-const soundUserSelect = document.getElementById('sound-user-select');
-const soundUpload = document.getElementById('sound-upload');
-const soundUploadBtn = document.getElementById('sound-upload-btn');
-const soundList = document.getElementById('sound-list');
 
 // TTS State with localStorage support
 const ttsState = {
@@ -65,26 +61,8 @@ const ttsState = {
   users: new Map(JSON.parse(localStorage.getItem('ttsUsers') || '[]')), 
   queue: [],
   speaking: false,
-  currentUtterance: null,
-  userSounds: new Map()
+  currentUtterance: null
 };
-
-// Load sounds from localStorage on startup
-try {
-  const savedSounds = JSON.parse(localStorage.getItem('userSounds') || '[]');
-  savedSounds.forEach(([username, soundData]) => {
-    // Create audio element from base64
-    const audio = new Audio();
-    audio.src = soundData.base64;
-    ttsState.userSounds.set(username, {
-      audio: audio,
-      name: soundData.name,
-      base64: soundData.base64
-    });
-  });
-} catch (error) {
-  console.error('Error loading saved sounds:', error);
-}
 
 // Initialize TTS
 const tts = window.speechSynthesis;
@@ -99,77 +77,52 @@ function splitMessageIntoChunks(text, maxLength = 180) {
   // Censor bad words for display purposes
   const censoredText = censorBadWords(text);
   
-  // If filter is enabled, we need to split on filtered words
+  // Replace bad words with spaces for TTS
+  let ttsText = text;
   if (ttsState.filterEnabled) {
-    const chunks = [];
-    const words = text.split(/\s+/);
-    let currentChunk = '';
-    let currentDisplayChunk = '';
-    
-    words.forEach(word => {
-      if (containsBadWords(word)) {
-        // Add current chunk if it exists
-        if (currentChunk) {
-          chunks.push([currentChunk.trim(), currentDisplayChunk.trim()]);
-        }
-        // Add a special marker for sound effect
-        chunks.push(['__SOUND_EFFECT__', '*'.repeat(word.length)]);
-        currentChunk = '';
-        currentDisplayChunk = '';
-      } else {
-        if ((currentChunk + ' ' + word).length <= maxLength) {
-          currentChunk += (currentChunk ? ' ' : '') + word;
-          currentDisplayChunk += (currentDisplayChunk ? ' ' : '') + word;
-        } else {
-          if (currentChunk) {
-            chunks.push([currentChunk.trim(), currentDisplayChunk.trim()]);
-          }
-          currentChunk = word;
-          currentDisplayChunk = word;
-        }
-      }
+    badWordsData.forEach(category => {
+      category.dictionary.forEach(entry => {
+        const matches = entry.match.split('|');
+        matches.forEach(match => {
+          const regex = new RegExp(`\\b${match}\\b`, 'gi');
+          ttsText = ttsText.replace(regex, ' ');
+        });
+      });
     });
-
-    // Add remaining chunk if it exists
-    if (currentChunk) {
-      chunks.push([currentChunk.trim(), currentDisplayChunk.trim()]);
-    }
-
-    return chunks;
-  } else {
-    // Original sentence-based splitting logic for non-filtered text
-    const punctuationSplit = text.split(/([.!?]+\s+)/g);
-    const chunks = [];
-    let currentChunk = '';
-
-    punctuationSplit.forEach(segment => {
-      if ((currentChunk + segment).length <= maxLength) {
-        currentChunk += segment;
-      } else {
-        if (currentChunk) chunks.push([currentChunk.trim(), currentChunk.trim()]);
-        
-        if (segment.length > maxLength) {
-          // Split long segments on spaces
-          const words = segment.split(/\s+/);
-          currentChunk = '';
-          
-          words.forEach(word => {
-            if ((currentChunk + ' ' + word).length <= maxLength) {
-              currentChunk += (currentChunk ? ' ' : '') + word;
-            } else {
-              if (currentChunk) chunks.push([currentChunk.trim(), currentChunk.trim()]);
-              currentChunk = word;
-            }
-          });
-        } else {
-          currentChunk = segment;
-        }
-      }
-    });
-
-    if (currentChunk) chunks.push([currentChunk.trim(), currentChunk.trim()]);
-    return chunks.filter(chunk => chunk[0].length > 0);
   }
+
+  // First split on punctuation
+  const punctuationSplit = ttsText.split(/([.!?]+\s+)/g);
+  const chunks = [];
+  let currentChunk = '';
+
+  punctuationSplit.forEach(segment => {
+    if ((currentChunk + segment).length <= maxLength) {
+      currentChunk += segment;
+    } else {
+      if (currentChunk) chunks.push([currentChunk.trim(), censorBadWords(currentChunk.trim())]);
+      
+      if (segment.length > maxLength) {
+        // Split long segments on spaces
+        const words = segment.split(/\s+/);
+        currentChunk = '';
+        
+        words.forEach(word => {
+          if ((currentChunk + ' ' + word).length <= maxLength) {
+            currentChunk += (currentChunk ? ' ' : '') + word;
+          } else {
+            if (currentChunk) chunks.push([currentChunk.trim(), censorBadWords(currentChunk.trim())]);
+            currentChunk = word;
+          }
+        });
+      } else {
+        currentChunk = segment;
+      }
+    }
+  });
+
+  if (currentChunk) chunks.push([currentChunk.trim(), censorBadWords(currentChunk.trim())]);
+  return chunks.filter(chunk => chunk[0].length > 0);
 }
 
 // Reset TTS if it gets stuck
@@ -258,16 +211,13 @@ function addTTSUser(username, voiceName) {
     ttsState.users.set(username, voiceName);
     saveTTSState();
     updateTTSUsersList();
-    updateSoundUserSelect();
   }
 }
 
 function removeTTSUser(username) {
   ttsState.users.delete(username);
-  deleteUserSound(username);
   saveTTSState();
   updateTTSUsersList();
-  updateSoundUserSelect();
 }
 
 function updateUserVoice(username, voiceName) {
@@ -356,37 +306,62 @@ function queueTTSMessage(text, username) {
   const voice = voices.find(v => v.name === voiceName);
 
   chunks.forEach(([ttsText, displayText]) => {
-    if (ttsText === '__SOUND_EFFECT__') {
-      // Create a special utterance for sound effects
-      const utterance = new SpeechSynthesisUtterance('');
-      utterance.text = '__SOUND_EFFECT__';
-      utterance.username = username;
-      utterance.displayText = displayText;
-      ttsState.queue.push(utterance);
-    } else {
-      const utterance = new SpeechSynthesisUtterance(ttsText);
-      
-      if (voice) {
-        utterance.voice = voice;
-      }
-
-      utterance.rate = 1;
-      utterance.pitch = 1;
-      utterance.volume = 1;
-      utterance.username = username;
-      utterance.displayText = displayText;
-
-      utterance.onerror = (event) => {
-        console.error('TTS Error:', event);
-        resetTTS();
-      };
-
-      ttsState.queue.push(utterance);
+    const utterance = new SpeechSynthesisUtterance(ttsText);
+    
+    if (voice) {
+      utterance.voice = voice;
     }
+
+    utterance.rate = 1;
+    utterance.pitch = 1;
+    utterance.volume = 1;
+    utterance.username = username;
+    utterance.displayText = displayText; // Store censored version for display
+
+    utterance.onerror = (event) => {
+      console.error('TTS Error:', event);
+      resetTTS();
+    };
+
+    ttsState.queue.push(utterance);
+    updateQueueDisplay();
   });
 
-  updateQueueDisplay();
   processTTSQueue();
+}
+
+function processTTSQueue() {
+  if (!ttsState.enabled || ttsState.speaking || ttsState.queue.length === 0) {
+    updateQueueDisplay();
+    return;
+  }
+
+  ttsState.speaking = true;
+  const utterance = ttsState.queue.shift();
+  ttsState.currentUtterance = utterance;
+  updateQueueDisplay();
+  
+  utterance.onend = () => {
+    ttsState.speaking = false;
+    ttsState.currentUtterance = null;
+    processTTSQueue();
+  };
+
+  utterance.onstart = () => {
+    updateQueueDisplay(); // Update display when speech starts
+  };
+
+  utterance.onerror = () => {
+    console.error('TTS Error during playback');
+    resetTTS();
+  };
+
+  try {
+    tts.speak(utterance);
+  } catch (error) {
+    console.error('TTS Speak Error:', error);
+    resetTTS();
+  }
 }
 
 // Handle connect/disconnect
@@ -533,176 +508,3 @@ channelInput.addEventListener('keypress', (e) => {
     connectButton.click();
   }
 });
-
-// Update sound user select when TTS users change
-function updateSoundUserSelect() {
-  soundUserSelect.innerHTML = Array.from(ttsState.users.keys()).map(username => 
-    `<option value="${username}">${username}</option>`
-  ).join('');
-}
-
-// Update sound list display
-function updateSoundList() {
-  soundList.innerHTML = '';
-  ttsState.userSounds.forEach((soundData, username) => {
-    const div = document.createElement('div');
-    div.className = 'sound-item';
-    div.innerHTML = `
-      <span>${username}</span>
-      <span>${soundData.name}</span>
-      <button class="play-btn" onclick="playUserSound('${username}')">Test</button>
-      <button class="delete-btn" onclick="deleteUserSound('${username}')">Delete</button>
-    `;
-    soundList.appendChild(div);
-  });
-}
-
-function playUserSound(username) {
-  return new Promise((resolve) => {
-    const soundData = ttsState.userSounds.get(username);
-    if (soundData && soundData.audio) {
-      const audioClone = soundData.audio.cloneNode();
-      audioClone.onended = resolve;
-      audioClone.onerror = resolve;
-      audioClone.play().catch(resolve);
-    } else {
-      resolve();
-    }
-  });
-}
-
-function deleteUserSound(username) {
-  if (ttsState.userSounds.has(username)) {
-    ttsState.userSounds.delete(username);
-    saveUserSounds();
-    updateSoundList();
-  }
-}
-
-// Save user sounds to localStorage
-function saveUserSounds() {
-  const serializedSounds = Array.from(ttsState.userSounds.entries()).map(([username, soundData]) => [
-    username,
-    {
-      name: soundData.name,
-      base64: soundData.base64
-    }
-  ]);
-  localStorage.setItem('userSounds', JSON.stringify(serializedSounds));
-}
-
-// Handle sound upload
-soundUploadBtn.addEventListener('click', () => {
-  const username = soundUserSelect.value;
-  const file = soundUpload.files[0];
-  
-  if (!username || !file) {
-    alert('Please select a user and sound file');
-    return;
-  }
-
-  if (!file.type.startsWith('audio/')) {
-    alert('Please select an audio file');
-    return;
-  }
-
-  // Convert file to base64
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    const base64Data = e.target.result;
-    
-    // Create and test audio element
-    const audio = new Audio();
-    audio.src = base64Data;
-    
-    // Store the sound data
-    ttsState.userSounds.set(username, {
-      audio: audio,
-      name: file.name,
-      base64: base64Data
-    });
-
-    saveUserSounds();
-    updateSoundList();
-    soundUpload.value = '';
-  };
-  
-  reader.readAsDataURL(file);
-});
-
-// Initialize sound management
-updateSoundUserSelect();
-updateSoundList();
-
-function processTTSQueue() {
-  if (!ttsState.enabled || ttsState.speaking || ttsState.queue.length === 0) {
-    updateQueueDisplay();
-    return;
-  }
-
-  ttsState.speaking = true;
-  const utterance = ttsState.queue.shift();
-  ttsState.currentUtterance = utterance;
-  updateQueueDisplay();
-
-  // Check if this is a sound effect marker
-  if (utterance.text === '__SOUND_EFFECT__') {
-    if (ttsState.userSounds.has(utterance.username.toLowerCase())) {
-      const soundData = ttsState.userSounds.get(utterance.username.toLowerCase());
-      
-      // Create a clone of the audio to allow multiple plays
-      const audioClone = soundData.audio.cloneNode();
-      
-      // Set up promise to resolve when sound completes
-      const soundPromise = new Promise((resolve) => {
-        audioClone.onended = resolve;
-        audioClone.onerror = resolve; // Also resolve on error to prevent getting stuck
-      });
-      
-      // Play the sound and wait for it to complete
-      audioClone.play()
-        .then(() => soundPromise)
-        .then(() => {
-          ttsState.speaking = false;
-          ttsState.currentUtterance = null;
-          processTTSQueue(); // Continue to next item
-        })
-        .catch(() => {
-          // Handle any errors by continuing the queue
-          ttsState.speaking = false;
-          ttsState.currentUtterance = null;
-          processTTSQueue();
-        });
-      return;
-    } else {
-      // No sound file, continue immediately
-      ttsState.speaking = false;
-      ttsState.currentUtterance = null;
-      processTTSQueue();
-      return;
-    }
-  }
-
-  // Regular TTS utterance handling
-  utterance.onend = () => {
-    ttsState.speaking = false;
-    ttsState.currentUtterance = null;
-    processTTSQueue();
-  };
-
-  utterance.onstart = () => {
-    updateQueueDisplay();
-  };
-
-  utterance.onerror = () => {
-    console.error('TTS Error during playback');
-    resetTTS();
-  };
-
-  try {
-    tts.speak(utterance);
-  } catch (error) {
-    console.error('TTS Speak Error:', error);
-    resetTTS();
-  }
-}
