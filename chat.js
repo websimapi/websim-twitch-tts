@@ -4,6 +4,10 @@ let client = null;
 // Store bad words data
 let badWordsData = [];
 
+// Auto Add User setting: if enabled, automatically create a TTS user when not already set up
+let autoAddUserEnabled = localStorage.getItem('autoAddUserEnabled');
+autoAddUserEnabled = autoAddUserEnabled === null ? true : autoAddUserEnabled === 'true';
+
 // Load bad words data
 fetch('en.json')
   .then(response => response.json())
@@ -53,6 +57,7 @@ const ttsUsernameInput = document.getElementById('tts-username');
 const ttsVoiceSelect = document.getElementById('tts-voice-select');
 const ttsUsersList = document.getElementById('tts-users');
 const ttsFilterToggleButton = document.getElementById('tts-filter-toggle');
+const autoAddUserToggle = document.getElementById('auto-add-user-toggle');
 
 // TTS State with localStorage support
 const ttsState = {
@@ -204,6 +209,8 @@ function loadTTSState() {
   ttsFilterToggleButton.textContent = ttsState.filterEnabled ? 'Filter Enabled' : 'Filter Disabled';
   ttsFilterToggleButton.classList.toggle('off', !ttsState.filterEnabled);
   updateTTSUsersList();
+  // Update auto add user toggle UI
+  autoAddUserToggle.textContent = autoAddUserEnabled ? 'Auto Add User: On' : 'Auto Add User: Off';
 }
 
 // Save TTS state to localStorage
@@ -251,6 +258,13 @@ ttsFilterToggleButton.addEventListener('click', () => {
   ttsFilterToggleButton.textContent = ttsState.filterEnabled ? 'Filter Enabled' : 'Filter Disabled';
   ttsFilterToggleButton.classList.toggle('off', !ttsState.filterEnabled);
   saveTTSState();
+});
+
+// Auto Add User Toggle Handler
+autoAddUserToggle.addEventListener('click', () => {
+  autoAddUserEnabled = !autoAddUserEnabled;
+  localStorage.setItem('autoAddUserEnabled', autoAddUserEnabled);
+  autoAddUserToggle.textContent = autoAddUserEnabled ? 'Auto Add User: On' : 'Auto Add User: Off';
 });
 
 function addTTSUser(username, voiceName) {
@@ -350,11 +364,12 @@ function queueTTSMessage(text, username) {
     // Do not enqueue TTS if the message starts with any valid gamble command trigger.
     return;
   }
-  if (!ttsState.enabled || !ttsState.users.has(username.toLowerCase())) {
+  // Only ignore messages starting with "!" if at the very start (commands), but not elsewhere in the text.
+  if (text[0] === '!' && !gambleTriggers.some(trigger => lowerText.startsWith(trigger.toLowerCase()))) {
     return;
   }
-  // Also ignore messages that start with "!" (commands) that are not gamble triggers.
-  if (text[0] === '!' && !gambleTriggers.some(trigger => lowerText.startsWith(trigger.toLowerCase()))) {
+  
+  if (!ttsState.enabled || !ttsState.users.has(username.toLowerCase())) {
     return;
   }
 
@@ -400,12 +415,11 @@ function processTTSQueue() {
   updateQueueDisplay();
   
   utterance.onstart = () => {
-    updateQueueDisplay(); // Update display when speech starts (Last Read)
+    updateQueueDisplay();
   };
 
   utterance.onend = () => {
     ttsState.speaking = false;
-    // Do not clear currentUtterance immediately, so Last Read remains displayed.
     processTTSQueue();
   };
 
@@ -487,21 +501,30 @@ function addChatMessage(username, message, tags) {
   timestamp.textContent = new Date().toLocaleTimeString();
   messageDiv.appendChild(timestamp);
 
-  // Add username with click handler
+  // Add username with click handler or auto-creation if enabled
   const usernameSpan = document.createElement('span');
   usernameSpan.className = 'username';
   usernameSpan.textContent = username;
   
+  // If the user is not set up for TTS
   if (!ttsState.users.has(username.toLowerCase())) {
-    usernameSpan.classList.add('clickable');
-    usernameSpan.title = 'Click to add TTS for this user';
-    usernameSpan.addEventListener('click', () => {
+    if (autoAddUserEnabled) {
       const voices = tts.getVoices();
       if (voices.length) {
         const randomVoice = voices[Math.floor(Math.random() * voices.length)].name;
         addTTSUser(username.toLowerCase(), randomVoice);
       }
-    });
+    } else {
+      usernameSpan.classList.add('clickable');
+      usernameSpan.title = 'Click to add TTS for this user';
+      usernameSpan.addEventListener('click', () => {
+        const voices = tts.getVoices();
+        if (voices.length) {
+          const randomVoice = voices[Math.floor(Math.random() * voices.length)].name;
+          addTTSUser(username.toLowerCase(), randomVoice);
+        }
+      });
+    }
   }
   messageDiv.appendChild(usernameSpan);
 
