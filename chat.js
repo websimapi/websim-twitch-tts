@@ -446,7 +446,54 @@ function processTTSQueue() {
   }
 }
 
-// Function to create iframe based on URL
+// Modified processMediaQueue function with improved autoplay handling
+function processMediaQueue() {
+  const mediaPlayer = document.getElementById('media-player');
+  if (!mediaQueueState.enabled || mediaQueueState.currentlyPlaying || mediaQueueState.queue.length === 0) {
+    return;
+  }
+
+  const nextItem = mediaQueueState.queue[0];
+  const embed = createMediaEmbed(nextItem.url);
+  
+  if (embed) {
+    mediaQueueState.currentlyPlaying = nextItem;
+    mediaPlayer.innerHTML = '';
+    mediaPlayer.appendChild(embed);
+    
+    // Trigger a fake click event for autoplay (helps with browser autoplay policies)
+    const fakeClick = new MouseEvent('click', {
+      bubbles: true,
+      cancelable: true,
+      view: window
+    });
+    embed.dispatchEvent(fakeClick);
+    
+    // Add manual skip button
+    const skipButton = document.createElement('button');
+    skipButton.textContent = 'Skip';
+    skipButton.className = 'control-btn';
+    skipButton.onclick = () => {
+      mediaQueueState.currentlyPlaying = null;
+      mediaQueueState.queue.shift();
+      updateMediaQueueDisplay();
+      processMediaQueue();
+    };
+    mediaPlayer.appendChild(skipButton);
+    
+    // If queue is empty after playing current item, loop back to start
+    if (mediaQueueState.queue.length === 1) {
+      mediaQueueState.queue = [...mediaQueueState.queue]; // Clone current queue
+    }
+  } else {
+    // If we couldn't create an embed, skip to next item
+    mediaQueueState.queue.shift();
+    updateMediaQueueDisplay();
+    processMediaQueue();
+  }
+}
+
+// Modified createMediaEmbed function with improved autoplay handling
 function createMediaEmbed(url) {
   const urlObj = new URL(url);
   let embedUrl;
@@ -456,10 +503,10 @@ function createMediaEmbed(url) {
   iframe.style.width = '100%';
   iframe.style.height = '315px'; 
   iframe.style.border = 'none';
-  iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+  iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; background-playback';
   iframe.allowFullscreen = true;
 
-  // YouTube handling
+  // YouTube handling with improved autoplay
   if (urlObj.hostname.includes('youtube.com') || urlObj.hostname.includes('youtu.be')) {
     let videoId;
     if (urlObj.hostname.includes('youtu.be')) {
@@ -468,41 +515,66 @@ function createMediaEmbed(url) {
       videoId = urlObj.searchParams.get('v');
     }
     
-    embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=0&loop=1&playlist=${videoId}&playsinline=1&enablejsapi=1`;
-    
-    // Add YouTube API support
-    iframe.setAttribute('id', `youtube-${videoId}`);
+    embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=0&loop=1&playlist=${videoId}&playsinline=1&enablejsapi=1&controls=1`;
+    iframe.id = `youtube-${videoId}`;
+
+    // Add YouTube API support with improved autoplay handling
     iframe.onload = () => {
-      new YT.Player(`youtube-${videoId}`, {
+      const player = new YT.Player(`youtube-${videoId}`, {
         events: {
+          'onReady': (event) => {
+            event.target.playVideo();
+            event.target.unMute();
+            // Force playback attempt after a short delay
+            setTimeout(() => {
+              event.target.playVideo();
+              event.target.unMute();
+            }, 1000);
+          },
           'onStateChange': (event) => {
             if (event.data === YT.PlayerState.ENDED) {
-              processMediaQueue(); // Move to next item when video ends
+              processMediaQueue();
+            }
+            // If paused or buffering, attempt to resume
+            if (event.data === YT.PlayerState.PAUSED || event.data === YT.PlayerState.BUFFERING) {
+              event.target.playVideo();
             }
           }
         }
       });
     };
   } 
-  // Spotify handling
+  // Spotify handling with improved autoplay
   else if (urlObj.hostname.includes('spotify.com')) {
     const parts = urlObj.pathname.split('/');
     const typeIndex = parts.indexOf('track') || parts.indexOf('playlist') || parts.indexOf('album');
     if (typeIndex !== -1) {
       const id = parts[typeIndex + 1];
       const type = parts[typeIndex];
-      embedUrl = `https://open.spotify.com/embed/${type}/${id}?autoplay=1`;
+      embedUrl = `https://open.spotify.com/embed/${type}/${id}?autoplay=1&theme=0`;
+      
+      // Add message event listener for Spotify embed
+      window.addEventListener('message', (event) => {
+        if (event.data.type === 'playback_update' && event.data.status === 'ended') {
+          processMediaQueue();
+        }
+      });
     }
   } 
-  // SoundCloud handling
+  // SoundCloud handling with improved autoplay
   else if (urlObj.hostname.includes('soundcloud.com')) {
-    embedUrl = `https://w.soundcloud.com/player/?url=${encodeURIComponent(url)}&auto_play=true`;
+    embedUrl = `https://w.soundcloud.com/player/?url=${encodeURIComponent(url)}&auto_play=true&show_comments=false&show_user=false&show_reposts=false&show_teaser=false`;
     
-    // Add SoundCloud API support
+    // Add SoundCloud API support with improved autoplay
     iframe.onload = () => {
       const widget = SC.Widget(iframe);
+      widget.bind(SC.Widget.Events.READY, () => {
+        widget.play();
+        // Force play attempt after a short delay
+        setTimeout(() => widget.play(), 1000);
+      });
       widget.bind(SC.Widget.Events.FINISH, () => {
-        processMediaQueue(); // Move to next item when track ends
+        processMediaQueue();
       });
     };
   }
@@ -513,6 +585,32 @@ function createMediaEmbed(url) {
   }
   return null;
 }
+
+// Load required APIs earlier in the page lifecycle
+window.onload = () => {
+  loadMediaAPIs();
+};
+
+// Add click handler to body to help with autoplay
+document.body.addEventListener('click', () => {
+  if (mediaQueueState.enabled && !mediaQueueState.currentlyPlaying && mediaQueueState.queue.length > 0) {
+    processMediaQueue();
+  }
+});
+
+// Add handlers for user interactions that can trigger autoplay
+connectButton.addEventListener('click', () => {
+  if (mediaQueueState.enabled && !mediaQueueState.currentlyPlaying && mediaQueueState.queue.length > 0) {
+    processMediaQueue();
+  }
+  // ... rest of connect button logic
+});
+
+channelInput.addEventListener('click', () => {
+  if (mediaQueueState.enabled && !mediaQueueState.currentlyPlaying && mediaQueueState.queue.length > 0) {
+    processMediaQueue();
+  }
+});
 
 // Load required APIs
 function loadMediaAPIs() {
@@ -532,9 +630,6 @@ function loadMediaAPIs() {
   }
 }
 
-// Call API loader when page loads
-loadMediaAPIs();
-
 // Function to process media queue
 function processMediaQueue() {
   const mediaPlayer = document.getElementById('media-player');
@@ -549,6 +644,14 @@ function processMediaQueue() {
     mediaQueueState.currentlyPlaying = nextItem;
     mediaPlayer.innerHTML = '';
     mediaPlayer.appendChild(embed);
+    
+    // Trigger a fake click event for autoplay (helps with browser autoplay policies)
+    const fakeClick = new MouseEvent('click', {
+      bubbles: true,
+      cancelable: true,
+      view: window
+    });
+    embed.dispatchEvent(fakeClick);
     
     // Add manual skip button
     const skipButton = document.createElement('button');
