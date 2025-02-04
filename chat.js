@@ -89,8 +89,6 @@
 
   // Function to extract title and author from URL (mock implementation)
   async function getMediaInfo(url) {
-    // This would need to be implemented with proper API calls
-    // For now, return null to indicate no info available
     return null;
   }
 
@@ -123,18 +121,12 @@
 
   // Split message into digestible chunks
   function splitMessageIntoChunks(text, maxLength = 180) {
-    // Skip if message contains URLs
     if (/https?:\/\/[^\s]+/.test(text)) {
-      // Extract non-URL parts for TTS
       const parts = text.split(/https?:\/\/[^\s]+/);
       const nonUrlText = parts.join(' ').trim();
       return nonUrlText ? splitMessageIntoChunks(nonUrlText) : [];
     }
-
-    // Censor bad words for display purposes
     const censoredText = censorBadWords(text);
-    
-    // Replace bad words with spaces for TTS when filter is enabled
     let ttsText = text;
     if (ttsState.filterEnabled) {
       badWordsData.forEach(category => {
@@ -147,23 +139,17 @@
         });
       });
     }
-
-    // First split on punctuation
     const punctuationSplit = ttsText.split(/([.!?]+\s+)/g);
     const chunks = [];
     let currentChunk = '';
-
     punctuationSplit.forEach(segment => {
       if ((currentChunk + segment).length <= maxLength) {
         currentChunk += segment;
       } else {
         if (currentChunk) chunks.push([currentChunk.trim(), censorBadWords(currentChunk.trim())]);
-        
         if (segment.length > maxLength) {
-          // Split long segments on spaces
           const words = segment.split(/\s+/);
           currentChunk = '';
-          
           words.forEach(word => {
             if ((currentChunk + ' ' + word).length <= maxLength) {
               currentChunk += (currentChunk ? ' ' : '') + word;
@@ -177,7 +163,6 @@
         }
       }
     });
-
     if (currentChunk) chunks.push([currentChunk.trim(), censorBadWords(currentChunk.trim())]);
     return chunks.filter(chunk => chunk[0].length > 0);
   }
@@ -191,7 +176,6 @@
     processTTSQueue();
   }
 
-  // Add automatic reset if TTS gets stuck
   setInterval(() => {
     if (ttsState.speaking && !tts.speaking) {
       console.log("Detected stuck TTS state, resetting...");
@@ -211,14 +195,13 @@
     ).join('');
   }
 
-  // Load TTS state from localStorage
+  // Load TTS state from localStorage and update UI
   function loadTTSState() {
     ttsToggleButton.textContent = ttsState.enabled ? 'TTS Enabled' : 'TTS Disabled';
     ttsToggleButton.classList.toggle('off', !ttsState.enabled);
     ttsFilterToggleButton.textContent = ttsState.filterEnabled ? 'Filter Enabled' : 'Filter Disabled';
     ttsFilterToggleButton.classList.toggle('off', !ttsState.filterEnabled);
     updateTTSUsersList();
-    // Update auto add user toggle UI
     autoAddUserToggle.textContent = autoAddUserEnabled ? 'Auto Add User: On' : 'Auto Add User: Off';
   }
 
@@ -234,7 +217,6 @@
     localStorage.setItem('mutedUsers', JSON.stringify(Array.from(mutedUsers)));
   }
 
-  // Handle voice list change
   tts.onvoiceschanged = () => {
     populateVoiceList();
     loadTTSState();
@@ -266,7 +248,6 @@
     }
   });
 
-  // Add filter toggle handler
   ttsFilterToggleButton.addEventListener('click', () => {
     ttsState.filterEnabled = !ttsState.filterEnabled;
     ttsFilterToggleButton.textContent = ttsState.filterEnabled ? 'Filter Enabled' : 'Filter Disabled';
@@ -274,7 +255,6 @@
     saveTTSState();
   });
 
-  // Auto Add User Toggle Handler
   autoAddUserToggle.addEventListener('click', () => {
     autoAddUserEnabled = !autoAddUserEnabled;
     localStorage.setItem('autoAddUserEnabled', autoAddUserEnabled);
@@ -303,7 +283,6 @@
     }
   }
 
-  // Update TTS Users List - ensures voices are loaded before populating
   function updateTTSUsersList() {
     const voices = tts.getVoices();
     if (!voices.length) {
@@ -325,7 +304,6 @@
         </select>
       `;
       
-      // Determine mute button text based on whether the user is muted
       const isMuted = mutedUsers.has(username);
       const muteButton = `<button onclick="toggleMuteUser('${username}')" class="control-btn ${isMuted ? 'toggle-btn off' : 'toggle-btn'}">${isMuted ? 'Unmute' : 'Mute'}</button>`;
 
@@ -339,7 +317,6 @@
     });
   }
 
-  // Global function to toggle mute state for a user
   function toggleMuteUser(username) {
     username = username.toLowerCase();
     if (mutedUsers.has(username)) {
@@ -350,7 +327,7 @@
     saveMutedUsers();
     updateTTSUsersList();
   }
-  window.toggleMuteUser = toggleMuteUser; // Expose to global scope for inline events
+  window.toggleMuteUser = toggleMuteUser;
 
   function clearTTSQueue() {
     ttsState.queue = [];
@@ -365,7 +342,6 @@
     const queueDisplay = document.getElementById('tts-queue-display');
     const currentDisplay = document.getElementById('tts-current-display');
     
-    // Update Last Read section
     if (ttsState.currentUtterance) {
       currentDisplay.innerHTML = `
         <div class="current-item">
@@ -377,13 +353,10 @@
     } else {
       currentDisplay.innerHTML = '<div class="empty-current">Nothing read yet</div>';
     }
-
-    // Update Queue section
     if (ttsState.queue.length === 0) {
       queueDisplay.innerHTML = '<div class="empty-queue">Queue is empty</div>';
       return;
     }
-
     queueDisplay.innerHTML = ttsState.queue.map((utterance, index) => `
       <div class="queue-item">
         <span class="queue-number">${index + 1}.</span>
@@ -393,19 +366,14 @@
     `).join('');
   }
 
-  // Modify queueTTSMessage to skip messages that start with a command trigger.
-  // Also, if the user is muted, their messages are not queued.
   function queueTTSMessage(text, username) {
     username = username.toLowerCase();
-    // Skip TTS if user is muted
     if (mutedUsers.has(username)) return;
     
     const lowerText = text.toLowerCase();
     if (gambleTriggers.some(trigger => lowerText.startsWith(trigger.toLowerCase()))) {
-      // Do not enqueue TTS if the message starts with any valid gamble command trigger.
       return;
     }
-    // Only ignore messages starting with "!" if at the very start (commands), but not elsewhere in the text.
     if (text[0] === '!' && !gambleTriggers.some(trigger => lowerText.startsWith(trigger.toLowerCase()))) {
       return;
     }
@@ -413,12 +381,10 @@
     if (!ttsState.enabled || !ttsState.users.has(username)) {
       return;
     }
-
     const chunks = splitMessageIntoChunks(text);
     const voiceName = ttsState.users.get(username);
     const voices = tts.getVoices();
     const voice = voices.find(v => v.name === voiceName);
-
     chunks.forEach(([ttsText, displayText]) => {
       const utterance = new SpeechSynthesisUtterance(ttsText);
       
@@ -440,7 +406,6 @@
       ttsState.queue.push(utterance);
       updateQueueDisplay();
     });
-
     processTTSQueue();
   }
 
@@ -449,7 +414,6 @@
       updateQueueDisplay();
       return;
     }
-
     ttsState.speaking = true;
     const utterance = ttsState.queue.shift();
     ttsState.currentUtterance = utterance;
@@ -477,10 +441,6 @@
     }
   }
 
-  // Custom Commands Helper Functions
-  // The functions getCustomCommand, queueCustomTTSMessage, and playCustomAudio are used by custom commands feature.
-  // getCustomCommand(trigger) is defined in customCommands.js and attached to window.
-  // Here we define:
   function queueCustomTTSMessage(text, voiceName, username) {
     const chunks = splitMessageIntoChunks(text);
     const voices = tts.getVoices();
@@ -506,7 +466,6 @@
   }
 
   function playCustomAudio(audioData) {
-    // If audioData is stored in chunks, join them.
     if (Array.isArray(audioData)) {
       audioData = audioData.join('');
     }
@@ -514,7 +473,6 @@
     audio.play().catch(error => console.error('Audio Playback Error:', error));
   }
 
-  // Handle connect/disconnect
   connectButton.addEventListener('click', () => {
     if (client && client.readyState() === 'OPEN') {
       disconnectFromChat();
@@ -530,8 +488,6 @@
       alert('Please enter a channel name');
       return;
     }
-
-    // Create new client
     client = new window.tmi.Client({
       connection: {
         secure: true,
@@ -539,27 +495,20 @@
       },
       channels: [channel]
     });
-
-    // Handle connection
     client.connect().catch(console.error);
-
-    // Setup event handlers
     client.on('connected', () => {
       statusDiv.className = 'status connected';
       statusDiv.textContent = `Connected to ${channel}'s chat`;
       connectButton.textContent = 'Disconnect';
     });
-
     client.on('disconnected', () => {
       statusDiv.className = 'status disconnected';
       statusDiv.textContent = 'Disconnected from chat';
       connectButton.textContent = 'Connect';
     });
-
     client.on('message', (channel, tags, message, self) => {
       const username = tags['display-name'] || 'Anonymous';
       const lowerMessage = message.trim().toLowerCase();
-      // Check for custom command
       if (window.getCustomCommand) {
         const customCmd = window.getCustomCommand(lowerMessage);
         if (customCmd) {
@@ -587,19 +536,14 @@
   function addChatMessage(username, message, tags) {
     const messageDiv = document.createElement('div');
     messageDiv.className = 'chat-message';
-
-    // Add timestamp
     const timestamp = document.createElement('span');
     timestamp.className = 'timestamp';
     timestamp.textContent = new Date().toLocaleTimeString();
     messageDiv.appendChild(timestamp);
-
-    // Add username with click handler or auto-creation if enabled
     const usernameSpan = document.createElement('span');
     usernameSpan.className = 'username';
     usernameSpan.textContent = username;
     
-    // If the user is not set up for TTS
     if (!ttsState.users.has(username.toLowerCase())) {
       if (autoAddUserEnabled) {
         const voices = tts.getVoices();
@@ -620,8 +564,6 @@
       }
     }
     messageDiv.appendChild(usernameSpan);
-
-    // Check for gamble command triggers using gambleTriggers array
     if (gambleTriggers.some(trigger => message.toLowerCase().startsWith(trigger.toLowerCase()))) {
       if (!gambleState.enabled) {
         const disabledMessage = document.createElement('div');
@@ -632,12 +574,9 @@
         `;
         chatBox.appendChild(disabledMessage);
         chatBox.scrollTop = chatBox.scrollHeight;
-        
-        // Queue TTS message about disabled state
         queueTTSMessage("Gamble Voice command is currently disabled", "System");
         return;
       }
-
       if (ttsState.users.has(username.toLowerCase())) {
         if (isOnGambleCooldown(username.toLowerCase())) {
           const cooldownMessage = document.createElement('div');
@@ -651,7 +590,6 @@
           chatBox.scrollTop = chatBox.scrollHeight;
           return;
         }
-
         const voices = tts.getVoices();
         const currentVoice = ttsState.users.get(username.toLowerCase());
         let newVoice;
@@ -660,11 +598,8 @@
         } while (newVoice === currentVoice && voices.length > 1);
         
         updateUserVoice(username.toLowerCase(), newVoice);
-        
-        // Update last use time
         gambleState.lastUse.set(username.toLowerCase(), Date.now());
         
-        // Add a system message about the voice change
         const systemMessage = document.createElement('div');
         systemMessage.className = 'chat-message system-message';
         systemMessage.innerHTML = `
@@ -673,50 +608,35 @@
         `;
         chatBox.appendChild(systemMessage);
         chatBox.scrollTop = chatBox.scrollHeight;
-
-        // Queue TTS notification about voice change
         queueTTSMessage(`${username} rolled for a new voice`, 'System');
-
-        // If there's additional text after the command trigger, read it with the new voice
         const triggerMatched = gambleTriggers.find(trigger => message.toLowerCase().startsWith(trigger.toLowerCase()));
         const additionalText = message.slice(triggerMatched.length).trim();
         if (additionalText) {
           queueTTSMessage(additionalText, username);
         }
       }
-      return; // Do not process further if message is a gamble command
+      return;
     }
-
-    // Add colon after username
     const colonSpan = document.createElement('span');
     colonSpan.textContent = ': ';
     messageDiv.appendChild(colonSpan);
-
-    // Process message content
     const messageContent = document.createElement('span');
     let remainingText = message;
-    
-    // Find URLs in message
     const urlRegex = /(https?:\/\/[^\s]+)/gi;
     const urlMatches = [...message.matchAll(urlRegex)];
     
     if (urlMatches.length > 0) {
       let lastIndex = 0;
-      
       for (const match of urlMatches) {
         const url = match[0];
         const beforeText = message.substring(lastIndex, match.index);
-        
         if (beforeText) {
           const textNode = document.createTextNode(censorBadWords(beforeText));
           messageContent.appendChild(textNode);
         }
-        
         if (isMusicServiceUrl(url)) {
-          const linkElement = createLinkElement(url, ''); // Initially empty metadata
+          const linkElement = createLinkElement(url, '');
           messageContent.appendChild(linkElement);
-          
-          // Fetch and update metadata asynchronously
           getMediaInfo(url).then(metadata => {
             if (metadata) {
               linkElement.lastChild.textContent = ` (${metadata})`;
@@ -726,11 +646,8 @@
           const textNode = document.createTextNode(url);
           messageContent.appendChild(textNode);
         }
-        
         lastIndex = match.index + url.length;
       }
-      
-      // Add any remaining text after the last URL
       const afterText = message.substring(lastIndex);
       if (afterText) {
         const textNode = document.createTextNode(censorBadWords(afterText));
@@ -739,31 +656,22 @@
     } else {
       messageContent.textContent = censorBadWords(message);
     }
-    
     messageDiv.appendChild(messageContent);
-
-    // Add to chat box and scroll to bottom
     chatBox.appendChild(messageDiv);
     chatBox.scrollTop = chatBox.scrollHeight;
-
-    // Limit messages
     while (chatBox.children.length > 500) {
       chatBox.removeChild(chatBox.firstChild);
     }
   }
 
-  // Check if a user is on gamble cooldown
   function isOnGambleCooldown(username) {
     if (gambleState.cooldown === 0) return false;
-    
     const lastUse = gambleState.lastUse.get(username);
     if (!lastUse) return false;
-    
     const timeSinceLastUse = Date.now() - lastUse;
     return timeSinceLastUse < (gambleState.cooldown * 1000);
   }
 
-  // Gamble Settings Modal Controls
   const gambleSettingsBtn = document.getElementById('gamble-settings-btn');
   const gambleSettingsModal = document.getElementById('gamble-settings-modal');
   const gambleCooldownInput = document.getElementById('gamble-cooldown');
@@ -789,7 +697,6 @@
   saveGambleSettingsBtn.addEventListener('click', () => {
     gambleState.cooldown = parseInt(gambleCooldownInput.value) || 0;
     gambleState.enabled = gambleEnabledCheckbox.checked;
-    // Update gambleTriggers based on comma separated values entered. Trim spaces.
     gambleTriggers = gambleTriggersInput.value.split(',').map(trigger => trigger.trim()).filter(trigger => trigger);
     localStorage.setItem('gambleCooldown', gambleState.cooldown);
     localStorage.setItem('gambleEnabled', gambleState.enabled);
@@ -803,29 +710,31 @@
     localStorage.setItem('gambleTriggers', JSON.stringify(gambleTriggers));
   });
 
-  // Handle Enter key in input
   channelInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {
       connectButton.click();
     }
   });
 
-  // Event listener to open Custom Commands modal
   customCommandsBtn.addEventListener('click', () => {
     const customModal = document.getElementById('custom-commands-modal');
     customModal.style.display = 'block';
   });
 
-  // Clicking the close button on Custom Commands modal
   document.getElementById('close-custom-commands').addEventListener('click', () => {
     document.getElementById('custom-commands-modal').style.display = 'none';
   });
 
-  // Clicking outside the Custom Commands modal closes it
   window.addEventListener('click', (e) => {
     const customModal = document.getElementById('custom-commands-modal');
     if (e.target === customModal) {
       customModal.style.display = 'none';
     }
   });
+
+  // Expose a function to reload TTS-related settings without a page reload.
+  window.reloadChatSettings = function() {
+    loadTTSState();
+    updateTTSUsersList();
+  };
 })();

@@ -24,7 +24,7 @@
     URL.revokeObjectURL(url);
   }
 
-  // Import settings from an uploaded file
+  // Import settings from an uploaded file and update UI immediately
   function importSettingsFromFile(event) {
     const file = event.target.files[0];
     if (!file) return;
@@ -37,7 +37,41 @@
             localStorage.setItem(key, imported[key]);
           }
         }
-        alert('Settings imported successfully. Please reload the page for changes to take effect.');
+        // Immediately update the UI elements that depend on settings
+        if(window.reloadChatSettings) {
+          window.reloadChatSettings();
+        }
+        // Update Gamble Settings Modal fields
+        const gambleCooldownInput = document.getElementById('gamble-cooldown');
+        if(gambleCooldownInput) {
+          gambleCooldownInput.value = localStorage.getItem('gambleCooldown') || 0;
+        }
+        const gambleEnabledCheckbox = document.getElementById('gamble-enabled');
+        if(gambleEnabledCheckbox) {
+          gambleEnabledCheckbox.checked = localStorage.getItem('gambleEnabled') === 'true';
+        }
+        const gambleTriggersInput = document.getElementById('gamble-triggers');
+        if(gambleTriggersInput) {
+          let triggers = localStorage.getItem('gambleTriggers');
+          try {
+            triggers = JSON.parse(triggers);
+          } catch (err) {
+            triggers = [];
+          }
+          gambleTriggersInput.value = triggers.join(', ');
+        }
+        // Update Auto Add User Toggle
+        const autoAddUserToggle = document.getElementById('auto-add-user-toggle');
+        if(autoAddUserToggle) {
+          let autoAddUserEnabled = localStorage.getItem('autoAddUserEnabled');
+          autoAddUserEnabled = autoAddUserEnabled === null ? true : autoAddUserEnabled === 'true';
+          autoAddUserToggle.textContent = autoAddUserEnabled ? 'Auto Add User: On' : 'Auto Add User: Off';
+        }
+        // Update Custom Commands UI if available
+        if(window.refreshCustomCommandsUI) {
+          window.refreshCustomCommandsUI();
+        }
+        alert('Settings imported successfully.');
       } catch (err) {
         alert('Failed to import settings: Invalid JSON.');
         console.error(err);

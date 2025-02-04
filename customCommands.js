@@ -137,7 +137,8 @@
 
       const audioLabel = document.createElement('span');
       audioLabel.style.fontSize = '0.9em';
-      audioLabel.textContent = cmd.audioData ? 'File loaded' : 'No file';
+      // Show current file name if available, otherwise default message
+      audioLabel.textContent = cmd.audioFileName ? cmd.audioFileName : (cmd.audioData ? 'File loaded' : 'No file');
       audioContainer.appendChild(audioLabel);
 
       const fileInput = document.createElement('input');
@@ -160,7 +161,9 @@
             } else {
               cmd.audioData = result;
             }
-            audioLabel.textContent = 'File loaded';
+            // Store the file name for display purposes
+            cmd.audioFileName = file.name;
+            audioLabel.textContent = file.name;
           };
           reader.readAsDataURL(file);
         }
@@ -212,7 +215,8 @@
       type: 'tts',
       message: '',
       voice: (window.speechSynthesis.getVoices()[0] || {}).name || '',
-      audioData: ''
+      audioData: '',
+      audioFileName: ''
     });
     populateCustomCommandsUI();
   }
