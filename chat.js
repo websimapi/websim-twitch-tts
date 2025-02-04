@@ -269,12 +269,14 @@
     }
   }
 
+  // Expose removeTTSUser for inline event handler use
   function removeTTSUser(username) {
     ttsState.users.delete(username);
     saveTTSState();
     updateTTSUsersList();
   }
 
+  // Expose updateUserVoice for inline event handler use
   function updateUserVoice(username, voiceName) {
     if (ttsState.users.has(username)) {
       ttsState.users.set(username, voiceName);
@@ -737,4 +739,8 @@
     loadTTSState();
     updateTTSUsersList();
   };
+
+  // Expose functions to be used in inline event handlers
+  window.removeTTSUser = removeTTSUser;
+  window.updateUserVoice = updateUserVoice;
 })();
