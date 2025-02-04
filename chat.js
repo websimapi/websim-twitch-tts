@@ -64,38 +64,32 @@ const ttsState = {
   currentUtterance: null
 };
 
+// Media Queue State
+const mediaQueueState = {
+  enabled: localStorage.getItem('mediaQueueEnabled') === 'true' || false,
+  queue: []
+};
+
 // Initialize TTS
 const tts = window.speechSynthesis;
 
 // Function to extract title and author from URL (mock implementation)
 async function getMediaInfo(url) {
-  // Extract video ID for YouTube URLs
-  const ytMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/);
-  if (ytMatch) {
-    try {
-      const videoId = ytMatch[1];
-      
-      // Here you would make the actual API call to fetch metadata
-      // Example using YouTube Data API (requires API key):
-      /*
-      const response = await fetch(`https://www.googleapis.com/youtube/v3/videos?id=${videoId}&part=snippet&key=YOUR_API_KEY`);
-      const data = await response.json();
-      if (data.items && data.items[0]) {
-        const snippet = data.items[0].snippet;
-        return `${snippet.channelTitle} - ${snippet.title}`;
-      }
-      */
-      
-      // For now, return null to indicate no info available
-      // Once you implement the API call, this will return actual metadata
-      return null;
-    } catch (error) {
-      console.error('Error fetching YouTube metadata:', error);
-      return null;
-    }
-  }
+  // TODO: Implement actual API calls to get media info
+  // Mock implementation for now
+  const mockData = {
+    'youtube.com': { author: 'Sample Artist', title: 'Sample YouTube Song' },
+    'youtu.be': { author: 'Sample Artist', title: 'Sample YouTube Song' },
+    'spotify.com': { author: 'Sample Artist', title: 'Sample Spotify Track' },
+    'soundcloud.com': { author: 'Sample Artist', title: 'Sample SoundCloud Track' }
+  };
   
-  // Handle other music services similarly
+  const domain = new URL(url).hostname.replace('www.', '');
+  const service = Object.keys(mockData).find(key => domain.includes(key));
+  
+  if (service) {
+    return mockData[service];
+  }
   return null;
 }
 
@@ -228,14 +222,31 @@ function saveTTSState() {
   localStorage.setItem('ttsUsers', JSON.stringify(Array.from(ttsState.users.entries())));
 }
 
+// Load media queue state from localStorage
+function loadMediaQueueState() {
+  const mediaQueueToggleButton = document.getElementById('media-queue-toggle');
+  mediaQueueToggleButton.textContent = mediaQueueState.enabled ? 'Media Queue Enabled' : 'Media Queue Disabled';
+  mediaQueueToggleButton.classList.toggle('off', !mediaQueueState.enabled);
+  updateMediaQueueDisplay();
+}
+
+// Save media queue state to localStorage
+function saveMediaQueueState() {
+  localStorage.setItem('mediaQueueEnabled', mediaQueueState.enabled);
+}
+
 // Handle voice list change
 tts.onvoiceschanged = () => {
   populateVoiceList();
   loadTTSState();
 };
 
+// Initialize buttons
+const mediaQueueToggleButton = document.getElementById('media-queue-toggle');
+
 populateVoiceList();
 loadTTSState();
+loadMediaQueueState();
 
 // TTS Controls
 ttsToggleButton.addEventListener('click', () => {
@@ -266,6 +277,14 @@ ttsFilterToggleButton.addEventListener('click', () => {
   ttsFilterToggleButton.textContent = ttsState.filterEnabled ? 'Filter Enabled' : 'Filter Disabled';
   ttsFilterToggleButton.classList.toggle('off', !ttsState.filterEnabled);
   saveTTSState();
+});
+
+// Media queue toggle handler
+mediaQueueToggleButton.addEventListener('click', () => {
+  mediaQueueState.enabled = !mediaQueueState.enabled;
+  mediaQueueToggleButton.textContent = mediaQueueState.enabled ? 'Media Queue Enabled' : 'Media Queue Disabled';
+  mediaQueueToggleButton.classList.toggle('off', !mediaQueueState.enabled);
+  saveMediaQueueState();
 });
 
 function addTTSUser(username, voiceName) {
@@ -572,15 +591,28 @@ function addChatMessage(username, message, tags) {
       }
       
       if (isMusicServiceUrl(url)) {
-        const linkElement = createLinkElement(url, ''); // Initially empty metadata
+        const linkElement = createLinkElement(url, '');
         messageContent.appendChild(linkElement);
         
-        // Fetch and update metadata asynchronously
-        getMediaInfo(url).then(metadata => {
-          if (metadata) {
-            linkElement.lastChild.textContent = ` (${metadata})`;
-          }
-        });
+        // Add to media queue if enabled
+        if (mediaQueueState.enabled) {
+          getMediaInfo(url).then(metadata => {
+            if (metadata) {
+              mediaQueueState.queue.push({
+                url,
+                username: username,
+                metadata,
+                timestamp: new Date()
+              });
+              updateMediaQueueDisplay();
+              
+              // Update the link element in chat
+              if (linkElement.lastChild) {
+                linkElement.lastChild.textContent = ` (${metadata.author} - ${metadata.title})`;
+              }
+            }
+          });
+        }
       } else {
         const textNode = document.createTextNode(url);
         messageContent.appendChild(textNode);
@@ -617,3 +649,24 @@ channelInput.addEventListener('keypress', (e) => {
     connectButton.click();
   }
 });
+
+// Update media queue display
+function updateMediaQueueDisplay() {
+  const mediaQueueDisplay = document.getElementById('media-queue-display');
+  
+  if (mediaQueueState.queue.length === 0) {
+    mediaQueueDisplay.innerHTML = '<div class="empty-queue">Media queue is empty</div>';
+    return;
+  }
+
+  mediaQueueDisplay.innerHTML = mediaQueueState.queue.map((item, index) => `
+    <div class="queue-item">
+      <span class="queue-number">${index + 1}.</span>
+      <span class="queue-username">${item.username}</span>
+      <span class="queue-text">
+        <a href="${item.url}" target="_blank">${item.url}</a>
+        ${item.metadata ? ` (${item.metadata.author} - ${item.metadata.title})` : ''}
+      </span>
+    </div>
+  `).join('');
+}
