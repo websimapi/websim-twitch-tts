@@ -585,7 +585,7 @@ function addChatMessage(username, message, tags) {
       chatBox.scrollTop = chatBox.scrollHeight;
 
       // Queue TTS notification about voice change
-      queueTTSMessage(`${username} rolled for a new voice`, 'System');
+      queueTTSMessage(`${username} rolled for a new voice and got ${newVoice}`, "System");
 
       // If there's additional text after the command, read it with the new voice
       const additionalText = message.toLowerCase().startsWith('!gv') ? 
