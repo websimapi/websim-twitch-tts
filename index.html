@@ -543,19 +543,11 @@
       <div id="export-import-modal" class="modal">
         <div class="modal-content">
           <h4>Export / Import Settings</h4>
-          <div style="margin-bottom: 15px;">
-            <h5>Export Settings</h5>
-            <textarea id="export-settings-textarea" rows="10" style="width:100%;resize:vertical;" readonly></textarea>
-            <div style="margin-top: 5px;">
-              <button id="copy-export-btn" class="control-btn add-btn">Copy to Clipboard</button>
-            </div>
+          <div style="margin-bottom: 15px; text-align: center;">
+            <button id="download-export-btn" class="control-btn add-btn">Download Settings JSON</button>
           </div>
-          <div style="margin-bottom: 15px;">
-            <h5>Import Settings</h5>
-            <textarea id="import-settings-textarea" rows="10" style="width:100%;resize:vertical;" placeholder='Paste exported JSON here'></textarea>
-            <div style="margin-top: 5px;">
-              <button id="import-settings-btn" class="control-btn add-btn">Import Settings</button>
-            </div>
+          <div style="margin-bottom: 15px; text-align: center;">
+            <input type="file" id="import-settings-file" accept=".json">
           </div>
           <div style="text-align:right;">
             <button id="close-export-import-btn" class="control-btn clear-btn">Close</button>

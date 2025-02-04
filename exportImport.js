@@ -1,7 +1,3 @@
-// exportImport.js
-// This module adds export/import functionality for settings stored in localStorage.
-// It allows the user to export all localStorage settings as JSON, and to import settings from a JSON file/string.
-
 (function() {
   // Helper: Get all localStorage settings as an object
   function getAllSettings() {
@@ -12,49 +8,52 @@
     }
     return settings;
   }
-
-  // Populate the export textarea with the JSON of settings.
-  function populateExportTextarea() {
-    const exportTextarea = document.getElementById('export-settings-textarea');
+  
+  // Trigger download of settings as a JSON file
+  function exportSettingsDownload() {
     const settings = getAllSettings();
-    exportTextarea.value = JSON.stringify(settings, null, 2);
+    const dataStr = JSON.stringify(settings, null, 2);
+    const blob = new Blob([dataStr], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "settings.json";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   }
 
-  // Copy export textarea contents to clipboard.
-  function copyExportedSettings() {
-    const exportTextarea = document.getElementById('export-settings-textarea');
-    exportTextarea.select();
-    document.execCommand('copy');
-    alert('Settings copied to clipboard.');
-  }
-
-  // Import settings from the import textarea. Overwrites current localStorage keys.
-  function importSettings() {
-    const importTextarea = document.getElementById('import-settings-textarea');
-    try {
-      const imported = JSON.parse(importTextarea.value);
-      for (const key in imported) {
-        if (imported.hasOwnProperty(key)) {
-          localStorage.setItem(key, imported[key]);
+  // Import settings from an uploaded file
+  function importSettingsFromFile(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        const imported = JSON.parse(e.target.result);
+        for (const key in imported) {
+          if (imported.hasOwnProperty(key)) {
+            localStorage.setItem(key, imported[key]);
+          }
         }
+        alert('Settings imported successfully. Please reload the page for changes to take effect.');
+      } catch (err) {
+        alert('Failed to import settings: Invalid JSON.');
+        console.error(err);
       }
-      alert('Settings imported successfully. Please reload the page for changes to take effect.');
-    } catch (err) {
-      alert('Failed to import settings: Invalid JSON.');
-      console.error(err);
-    }
+    };
+    reader.readAsText(file);
   }
 
-  // Setup event listeners for export/import modal
   function setupExportImportModal() {
     const openBtn = document.getElementById('export-import-settings-btn');
     const modal = document.getElementById('export-import-modal');
     const closeBtn = document.getElementById('close-export-import-btn');
-    const copyBtn = document.getElementById('copy-export-btn');
-    const importBtn = document.getElementById('import-settings-btn');
+    const exportBtn = document.getElementById('download-export-btn');
+    const importFileInput = document.getElementById('import-settings-file');
 
     openBtn.addEventListener('click', () => {
-      populateExportTextarea();
       modal.style.display = 'block';
     });
 
@@ -69,10 +68,9 @@
       }
     });
 
-    copyBtn.addEventListener('click', copyExportedSettings);
-    importBtn.addEventListener('click', importSettings);
+    exportBtn.addEventListener('click', exportSettingsDownload);
+    importFileInput.addEventListener('change', importSettingsFromFile);
   }
 
-  // Initialize export/import functionality when DOM is ready.
   document.addEventListener('DOMContentLoaded', setupExportImportModal);
 })();
