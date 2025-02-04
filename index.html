@@ -439,38 +439,27 @@
       background: #e0a800;
     }
 
-    /* Custom Commands Modal Specific */
+    /* Custom Commands Modal Specific - Updated for a more compact UI */
     .custom-command-item {
-      display: grid;
-      grid-template-columns: 120px 1fr 1fr auto;
-      gap: 10px;
+      display: flex;
       align-items: center;
-      margin-bottom: 10px;
-    }
-
-    .custom-command-item input, .custom-command-item select, .custom-command-item textarea {
-      width: 100%;
-    }
-
-    .custom-command-item button {
-      background: #dc3545;
-      color: white;
-      border: none;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 8px;
+      padding: 8px;
+      border: 1px solid #ccc;
       border-radius: 4px;
-      padding: 6px 10px;
-      cursor: pointer;
+      background: #fafafa;
     }
-
-    .custom-command-item button:hover {
-      background: #c82333;
+    .custom-command-item input,
+    .custom-command-item select {
+      font-size: 0.9em;
+      padding: 4px;
     }
-
-    .custom-command-header {
-      font-weight: bold;
-      margin-bottom: 10px;
-      text-align: center;
+    .custom-command-item button {
+      font-size: 0.9em;
+      padding: 4px 8px;
     }
-
     .add-custom-command-btn {
       background: #28a745;
       color: white;
@@ -480,7 +469,6 @@
       cursor: pointer;
       margin-bottom: 15px;
     }
-
     .add-custom-command-btn:hover {
       background: #218838;
     }

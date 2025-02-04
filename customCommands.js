@@ -32,38 +32,37 @@
   // Expose getCustomCommand globally so chat.js can use it
   window.getCustomCommand = getCustomCommand;
 
-  // Populate the Custom Commands Modal UI
+  // Populate the Custom Commands Modal UI with a more compact and user-friendly layout.
   function populateCustomCommandsUI() {
     const listDiv = document.getElementById('custom-commands-list');
     listDiv.innerHTML = '';
 
     if (commands.length === 0) {
-      listDiv.innerHTML = "<p style='font-size:1.2em; text-align:center; color:#666; margin:20px 0;'>No custom commands defined.</p>";
+      listDiv.innerHTML = "<p style='font-size:1em; text-align:center; color:#666; margin:10px 0;'>No custom commands defined.</p>";
       return;
     }
 
     commands.forEach((cmd, index) => {
-      // Create a wrapper div with enhanced styling for better spacing and readability
       const container = document.createElement('div');
       container.className = 'custom-command-item';
-      container.style.display = 'grid';
-      container.style.gridTemplateColumns = '2fr 2fr 2fr auto';
-      container.style.gap = '15px';
+      container.style.display = 'flex';
       container.style.alignItems = 'center';
-      container.style.marginBottom = '15px';
-      container.style.padding = '15px';
-      container.style.border = '1px solid #ddd';
-      container.style.borderRadius = '6px';
-      container.style.background = '#f9f9f9';
+      container.style.flexWrap = 'wrap';
+      container.style.gap = '8px';
+      container.style.marginBottom = '8px';
+      container.style.padding = '8px';
+      container.style.border = '1px solid #ccc';
+      container.style.borderRadius = '4px';
+      container.style.background = '#fafafa';
 
       // Trigger input
       const triggerInput = document.createElement('input');
       triggerInput.type = 'text';
       triggerInput.value = cmd.trigger;
-      triggerInput.placeholder = 'Command Trigger (e.g., !hello)';
-      triggerInput.style.fontSize = '1.1em';
-      triggerInput.style.padding = '10px';
-      triggerInput.style.width = '100%';
+      triggerInput.placeholder = 'Trigger (e.g., !hello)';
+      triggerInput.style.fontSize = '0.9em';
+      triggerInput.style.padding = '4px';
+      triggerInput.style.width = '100px';
       triggerInput.addEventListener('input', (e) => {
         cmd.trigger = e.target.value;
       });
@@ -71,11 +70,12 @@
 
       // Type select
       const typeSelect = document.createElement('select');
-      typeSelect.style.fontSize = '1.1em';
-      typeSelect.style.padding = '10px';
+      typeSelect.style.fontSize = '0.9em';
+      typeSelect.style.padding = '4px';
+      typeSelect.style.width = '100px';
       typeSelect.innerHTML = `
-        <option value="tts" ${cmd.type === 'tts' ? 'selected' : ''}>TTS Message</option>
-        <option value="audio" ${cmd.type === 'audio' ? 'selected' : ''}>Audio File</option>
+        <option value="tts" ${cmd.type === 'tts' ? 'selected' : ''}>TTS</option>
+        <option value="audio" ${cmd.type === 'audio' ? 'selected' : ''}>Audio</option>
       `;
       typeSelect.addEventListener('change', (e) => {
         cmd.type = e.target.value;
@@ -83,36 +83,36 @@
       });
       container.appendChild(typeSelect);
 
-      // Details container: Will hold TTS details and Audio details stacked vertically
+      // Details container (flex container for TTS or Audio details)
       const detailsDiv = document.createElement('div');
       detailsDiv.style.display = 'flex';
-      detailsDiv.style.flexDirection = 'column';
-      detailsDiv.style.gap = '10px';
-      detailsDiv.style.width = '100%';
+      detailsDiv.style.alignItems = 'center';
+      detailsDiv.style.gap = '8px';
+      detailsDiv.style.flexGrow = '1';
 
-      // Container for TTS details
+      // TTS details: message input and voice select
       const ttsContainer = document.createElement('div');
       ttsContainer.className = 'tts-details';
-      ttsContainer.style.display = 'block';
-      ttsContainer.style.width = '100%';
+      ttsContainer.style.display = cmd.type === 'tts' ? 'flex' : 'none';
+      ttsContainer.style.alignItems = 'center';
+      ttsContainer.style.gap = '4px';
+      ttsContainer.style.flexGrow = '1';
 
-      // TTS message textarea
-      const ttsMessage = document.createElement('textarea');
-      ttsMessage.placeholder = 'TTS Message to speak';
-      ttsMessage.value = cmd.message || '';
-      ttsMessage.style.fontSize = '1.1em';
-      ttsMessage.style.padding = '10px';
-      ttsMessage.style.width = '100%';
-      ttsMessage.style.minHeight = '50px';
-      ttsMessage.addEventListener('input', (e) => {
+      const ttsMessageInput = document.createElement('input');
+      ttsMessageInput.type = 'text';
+      ttsMessageInput.placeholder = 'TTS Message';
+      ttsMessageInput.value = cmd.message || '';
+      ttsMessageInput.style.fontSize = '0.9em';
+      ttsMessageInput.style.padding = '4px';
+      ttsMessageInput.style.flexGrow = '1';
+      ttsMessageInput.addEventListener('input', (e) => {
         cmd.message = e.target.value;
       });
-      ttsContainer.appendChild(ttsMessage);
+      ttsContainer.appendChild(ttsMessageInput);
 
-      // TTS voice select
       const ttsVoiceSelect = document.createElement('select');
-      ttsVoiceSelect.style.fontSize = '1.1em';
-      ttsVoiceSelect.style.padding = '10px';
+      ttsVoiceSelect.style.fontSize = '0.9em';
+      ttsVoiceSelect.style.padding = '4px';
       // Populate voices from window.speechSynthesis if available
       const voices = window.speechSynthesis.getVoices ? window.speechSynthesis.getVoices() : [];
       ttsVoiceSelect.innerHTML = voices.map(voice => `<option value="${voice.name}" ${cmd.voice === voice.name ? 'selected' : ''}>${voice.name} (${voice.lang})</option>`).join('');
@@ -121,30 +121,30 @@
       });
       ttsContainer.appendChild(ttsVoiceSelect);
 
-      // Container for Audio details
+      // Audio details: file input and status label
       const audioContainer = document.createElement('div');
       audioContainer.className = 'audio-details';
-      audioContainer.style.display = 'none';
-      audioContainer.style.width = '100%';
-      // Label for audio file
-      const audioLabel = document.createElement('p');
-      audioLabel.style.fontSize = '1.1em';
-      audioLabel.style.margin = '0';
-      audioLabel.textContent = cmd.audioData ? 'Audio file loaded.' : 'No audio file selected.';
+      audioContainer.style.display = cmd.type === 'audio' ? 'flex' : 'none';
+      audioContainer.style.alignItems = 'center';
+      audioContainer.style.gap = '4px';
+      audioContainer.style.flexGrow = '1';
+
+      const audioLabel = document.createElement('span');
+      audioLabel.style.fontSize = '0.9em';
+      audioLabel.textContent = cmd.audioData ? 'File loaded' : 'No file';
       audioContainer.appendChild(audioLabel);
+
       const fileInput = document.createElement('input');
       fileInput.type = 'file';
       fileInput.accept = 'audio/*';
-      fileInput.style.fontSize = '1.1em';
-      fileInput.style.padding = '10px';
-      fileInput.style.width = '100%';
+      fileInput.style.fontSize = '0.9em';
       fileInput.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (file) {
           const reader = new FileReader();
           reader.onload = function(ev) {
             cmd.audioData = ev.target.result;
-            audioLabel.textContent = 'Audio file loaded.';
+            audioLabel.textContent = 'File loaded';
           };
           reader.readAsDataURL(file);
         }
@@ -157,11 +157,11 @@
 
       // Delete button
       const deleteBtn = document.createElement('button');
-      deleteBtn.textContent = 'Delete';
-      deleteBtn.style.fontSize = '1.1em';
-      deleteBtn.style.padding = '10px 15px';
+      deleteBtn.textContent = 'X';
+      deleteBtn.style.fontSize = '0.9em';
+      deleteBtn.style.padding = '4px 8px';
       deleteBtn.style.background = '#dc3545';
-      deleteBtn.style.color = 'white';
+      deleteBtn.style.color = '#fff';
       deleteBtn.style.border = 'none';
       deleteBtn.style.borderRadius = '4px';
       deleteBtn.style.cursor = 'pointer';
@@ -172,21 +172,20 @@
       });
       container.appendChild(deleteBtn);
 
-      updateCommandRowVisibility(container, cmd);
       listDiv.appendChild(container);
     });
   }
 
-  // Update which part of the command row is visible based on type
+  // Update which details are visible based on the command type.
   function updateCommandRowVisibility(row, cmd) {
     const ttsDetails = row.querySelector('.tts-details');
     const audioDetails = row.querySelector('.audio-details');
     if (cmd.type === 'tts') {
-      ttsDetails.style.display = 'block';
+      ttsDetails.style.display = 'flex';
       audioDetails.style.display = 'none';
     } else {
       ttsDetails.style.display = 'none';
-      audioDetails.style.display = 'block';
+      audioDetails.style.display = 'flex';
     }
   }
 
@@ -220,7 +219,7 @@
     customModal.style.display = 'none';
   });
 
-  // When the window loads, load voices then populate the UI (voices might be loaded asynchronously)
+  // When voices are loaded, populate the UI (voices might be loaded asynchronously)
   window.speechSynthesis.onvoiceschanged = () => {
     populateCustomCommandsUI();
   };
