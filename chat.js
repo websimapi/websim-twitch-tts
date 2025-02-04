@@ -194,8 +194,6 @@
       `<option value="${voice.name}">${voice.name} (${voice.lang})</option>`
     ).join('');
   }
-  // Expose populateVoiceList globally to allow reloading when settings change
-  window.populateVoiceList = populateVoiceList;
 
   // Load TTS state from localStorage and update UI
   function loadTTSState() {

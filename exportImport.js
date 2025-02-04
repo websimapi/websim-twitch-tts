@@ -38,20 +38,20 @@
           }
         }
         // Immediately update the UI elements that depend on settings
-        if(window.reloadChatSettings) {
+        if (window.reloadChatSettings) {
           window.reloadChatSettings();
         }
         // Update Gamble Settings Modal fields
         const gambleCooldownInput = document.getElementById('gamble-cooldown');
-        if(gambleCooldownInput) {
+        if (gambleCooldownInput) {
           gambleCooldownInput.value = localStorage.getItem('gambleCooldown') || 0;
         }
         const gambleEnabledCheckbox = document.getElementById('gamble-enabled');
-        if(gambleEnabledCheckbox) {
+        if (gambleEnabledCheckbox) {
           gambleEnabledCheckbox.checked = localStorage.getItem('gambleEnabled') === 'true';
         }
         const gambleTriggersInput = document.getElementById('gamble-triggers');
-        if(gambleTriggersInput) {
+        if (gambleTriggersInput) {
           let triggers = localStorage.getItem('gambleTriggers');
           try {
             triggers = JSON.parse(triggers);
@@ -62,18 +62,17 @@
         }
         // Update Auto Add User Toggle
         const autoAddUserToggle = document.getElementById('auto-add-user-toggle');
-        if(autoAddUserToggle) {
+        if (autoAddUserToggle) {
           let autoAddUserEnabled = localStorage.getItem('autoAddUserEnabled');
           autoAddUserEnabled = autoAddUserEnabled === null ? true : autoAddUserEnabled === 'true';
           autoAddUserToggle.textContent = autoAddUserEnabled ? 'Auto Add User: On' : 'Auto Add User: Off';
         }
         // Update Custom Commands UI if available
-        if(window.refreshCustomCommandsUI) {
-          window.refreshCustomCommandsUI();
+        if (window.loadCustomCommands) {
+          window.loadCustomCommands();
         }
-        // Fix TTS dropdown and other voice-dependent menus by repopulating voices
-        if(window.populateVoiceList) {
-          window.populateVoiceList();
+        if (window.refreshCustomCommandsUI) {
+          window.refreshCustomCommandsUI();
         }
         alert('Settings imported successfully.');
       } catch (err) {

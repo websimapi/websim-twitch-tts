@@ -250,4 +250,6 @@
 
   // Expose a manual refresh function if needed
   window.refreshCustomCommandsUI = populateCustomCommandsUI;
+  // Expose loadCommands so that imported settings update custom commands in memory.
+  window.loadCustomCommands = loadCommands;
 })();
