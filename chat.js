@@ -76,16 +76,10 @@ try {
     // Create audio element from base64
     const audio = new Audio();
     audio.src = soundData.base64;
-    
-    // Get duration after metadata is loaded
-    audio.addEventListener('loadedmetadata', () => {
-      ttsState.userSounds.set(username, {
-        audio: audio,
-        name: soundData.name,
-        base64: soundData.base64,
-        duration: audio.duration
-      });
-      updateSoundList();
+    ttsState.userSounds.set(username, {
+      audio: audio,
+      name: soundData.name,
+      base64: soundData.base64
     });
   });
 } catch (error) {
@@ -555,7 +549,7 @@ function updateSoundList() {
     div.className = 'sound-item';
     div.innerHTML = `
       <span>${username}</span>
-      <span>${soundData.name} (${soundData.duration.toFixed(1)}s)</span>
+      <span>${soundData.name}</span>
       <button class="play-btn" onclick="playUserSound('${username}')">Test</button>
       <button class="delete-btn" onclick="deleteUserSound('${username}')">Delete</button>
     `;
@@ -588,8 +582,7 @@ function saveUserSounds() {
     username,
     {
       name: soundData.name,
-      base64: soundData.base64,
-      duration: soundData.duration
+      base64: soundData.base64
     }
   ]);
   localStorage.setItem('userSounds', JSON.stringify(serializedSounds));
@@ -619,20 +612,16 @@ soundUploadBtn.addEventListener('click', () => {
     const audio = new Audio();
     audio.src = base64Data;
     
-    // Get audio duration after metadata is loaded
-    audio.addEventListener('loadedmetadata', () => {
-      // Store the sound data
-      ttsState.userSounds.set(username, {
-        audio: audio,
-        name: file.name,
-        base64: base64Data,
-        duration: audio.duration
-      });
-
-      saveUserSounds();
-      updateSoundList();
-      soundUpload.value = '';
+    // Store the sound data
+    ttsState.userSounds.set(username, {
+      audio: audio,
+      name: file.name,
+      base64: base64Data
     });
+
+    saveUserSounds();
+    updateSoundList();
+    soundUpload.value = '';
   };
   
   reader.readAsDataURL(file);
