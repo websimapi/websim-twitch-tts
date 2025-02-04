@@ -1,7 +1,3 @@
-// Custom Commands Module
-// This module allows users to configure custom commands that trigger either a TTS message (with a specified voice)
-// or play an uploaded audio file. The commands are stored in localStorage under the key "customCommands".
-
 (function() {
   const customCommandsKey = 'customCommands';
   let commands = [];
@@ -145,6 +141,8 @@
           reader.onload = function(ev) {
             cmd.audioData = ev.target.result;
             audioLabel.textContent = 'File loaded';
+            // Immediately save the updated command to localStorage to prevent issues in Edge
+            saveCommands();
           };
           reader.readAsDataURL(file);
         }
