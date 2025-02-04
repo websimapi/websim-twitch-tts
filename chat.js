@@ -467,25 +467,8 @@ function createMediaEmbed(url) {
     } else {
       videoId = urlObj.searchParams.get('v');
     }
-    
     embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=0&loop=1&playlist=${videoId}&playsinline=1&enablejsapi=1`;
-    
-    // Add YouTube API support
-    iframe.setAttribute('id', `youtube-${videoId}`);
-    iframe.onload = () => {
-      new YT.Player(`youtube-${videoId}`, {
-        events: {
-          'onStateChange': (event) => {
-            if (event.data === YT.PlayerState.ENDED || event.data === YT.PlayerState.UNSTARTED) {
-              mediaQueueState.currentlyPlaying = null;
-              mediaQueueState.queue.shift();
-              updateMediaQueueDisplay();
-              processMediaQueue();
-            }
-          }
-        }
-      });
-    };
+    iframe.id = `youtube-${Date.now()}`;
   } 
   // Spotify handling
   else if (urlObj.hostname.includes('spotify.com')) {
@@ -495,34 +478,11 @@ function createMediaEmbed(url) {
       const id = parts[typeIndex + 1];
       const type = parts[typeIndex];
       embedUrl = `https://open.spotify.com/embed/${type}/${id}?autoplay=1`;
-      
-      // Add event listener for Spotify playback end
-      iframe.onload = () => {
-        setTimeout(() => {
-          if (mediaQueueState.currentlyPlaying) {
-            mediaQueueState.currentlyPlaying = null;
-            mediaQueueState.queue.shift();
-            updateMediaQueueDisplay();
-            processMediaQueue();
-          }
-        }, 5000); // Check after 5 seconds if player loaded
-      };
     }
   } 
   // SoundCloud handling
   else if (urlObj.hostname.includes('soundcloud.com')) {
     embedUrl = `https://w.soundcloud.com/player/?url=${encodeURIComponent(url)}&auto_play=true`;
-    
-    // Add SoundCloud API support
-    iframe.onload = () => {
-      const widget = SC.Widget(iframe);
-      widget.bind(SC.Widget.Events.FINISH, () => {
-        mediaQueueState.currentlyPlaying = null;
-        mediaQueueState.queue.shift();
-        updateMediaQueueDisplay();
-        processMediaQueue();
-      });
-    };
   }
 
   if (embedUrl) {
@@ -535,8 +495,11 @@ function createMediaEmbed(url) {
 // Function to process media queue
 function processMediaQueue() {
   const mediaPlayer = document.getElementById('media-player');
+  
   if (!mediaQueueState.enabled || mediaQueueState.currentlyPlaying || mediaQueueState.queue.length === 0) {
-    mediaPlayer.innerHTML = ''; // Clear player if nothing to play
+    if (!mediaQueueState.queue.length) {
+      mediaPlayer.innerHTML = '';
+    }
     return;
   }
 
@@ -548,31 +511,92 @@ function processMediaQueue() {
     mediaPlayer.innerHTML = '';
     mediaPlayer.appendChild(embed);
     
-    // Add manual skip button with improved skip functionality
+    // Add manual skip button
     const skipButton = document.createElement('button');
     skipButton.textContent = 'Skip';
     skipButton.className = 'control-btn';
-    skipButton.onclick = () => {
-      mediaQueueState.currentlyPlaying = null;
-      mediaQueueState.queue.shift();
-      updateMediaQueueDisplay();
-      
-      // Force immediate processing of next item
-      setTimeout(() => {
-        processMediaQueue();
-      }, 100);
-    };
+    skipButton.onclick = skipCurrentMedia;
     mediaPlayer.appendChild(skipButton);
-    
-    // If queue is empty after playing current item, clone the queue for looping
+
+    // Setup auto-advance based on media type
+    const urlObj = new URL(nextItem.url);
+    if (urlObj.hostname.includes('youtube.com') || urlObj.hostname.includes('youtu.be')) {
+      setupYouTubePlayer(embed);
+    } else {
+      // For non-YouTube media, set a timeout to check status
+      setTimeout(checkMediaStatus, 5000);
+    }
+
+    // If queue becomes empty, loop back
     if (mediaQueueState.queue.length === 1) {
       mediaQueueState.queue = [...mediaQueueState.queue];
     }
   } else {
-    // If we couldn't create an embed, skip to next item
+    skipCurrentMedia();
+  }
+}
+
+// Function to skip current media
+function skipCurrentMedia() {
+  const mediaPlayer = document.getElementById('media-player');
+  mediaQueueState.currentlyPlaying = null;
+  if (mediaQueueState.queue.length > 0) {
     mediaQueueState.queue.shift();
-    updateMediaQueueDisplay();
+  }
+  updateMediaQueueDisplay();
+  
+  // Clear the player
+  mediaPlayer.innerHTML = '';
+  
+  // Process next item
+  setTimeout(() => {
     processMediaQueue();
+  }, 100);
+}
+
+// Setup YouTube player with proper event handling
+function setupYouTubePlayer(iframe) {
+  if (typeof YT === 'undefined') {
+    // Load YouTube API if not already loaded
+    const tag = document.createElement('script');
+    tag.src = "https://www.youtube.com/iframe_api";
+    const firstScriptTag = document.getElementsByTagName('script')[0];
+    firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+    window.onYouTubeIframeAPIReady = () => {
+      createYouTubePlayer(iframe);
+    };
+  } else {
+    createYouTubePlayer(iframe);
+  }
+}
+
+function createYouTubePlayer(iframe) {
+  new YT.Player(iframe.id, {
+    events: {
+      'onStateChange': (event) => {
+        if (event.data === YT.PlayerState.ENDED) {
+          skipCurrentMedia();
+        }
+      },
+      'onError': (event) => {
+        console.error('YouTube Player Error:', event);
+        skipCurrentMedia();
+      }
+    }
+  });
+}
+
+// Function to check media status and advance queue if needed
+function checkMediaStatus() {
+  if (mediaQueueState.currentlyPlaying) {
+    const iframe = document.querySelector('#media-player iframe');
+    if (!iframe) {
+      skipCurrentMedia();
+    } else {
+      // Schedule next check
+      setTimeout(checkMediaStatus, 5000);
+    }
   }
 }
 
