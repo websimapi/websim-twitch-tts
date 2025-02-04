@@ -590,7 +590,7 @@ function addChatMessage(username, message, tags) {
       // If there's additional text after the command, read it with the new voice
       const additionalText = message.toLowerCase().startsWith('!gv') ? 
         message.slice(3).trim() : 
-        message.slice(11).trim();
+        message.slice(12).trim();
       if (additionalText) {
         queueTTSMessage(additionalText, username);
       }
