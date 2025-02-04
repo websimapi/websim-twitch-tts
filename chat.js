@@ -61,6 +61,7 @@ const ttsVoiceSelect = document.getElementById('tts-voice-select');
 const ttsUsersList = document.getElementById('tts-users');
 const ttsFilterToggleButton = document.getElementById('tts-filter-toggle');
 const autoAddUserToggle = document.getElementById('auto-add-user-toggle');
+const customCommandsBtn = document.getElementById('custom-commands-btn');
 
 // TTS State with localStorage support
 const ttsState = {
@@ -466,6 +467,39 @@ function processTTSQueue() {
   }
 }
 
+// Custom Commands Helper Functions
+// The functions getCustomCommand, queueCustomTTSMessage, and playCustomAudio are used by custom commands feature.
+// getCustomCommand(trigger) is defined in customCommands.js and attached to window.
+// Here we define:
+function queueCustomTTSMessage(text, voiceName, username) {
+  const chunks = splitMessageIntoChunks(text);
+  const voices = tts.getVoices();
+  const voice = voices.find(v => v.name === voiceName);
+  chunks.forEach(([ttsText, displayText]) => {
+    const utterance = new SpeechSynthesisUtterance(ttsText);
+    if (voice) {
+      utterance.voice = voice;
+    }
+    utterance.rate = 1;
+    utterance.pitch = 1;
+    utterance.volume = 1;
+    utterance.username = username;
+    utterance.displayText = displayText;
+    utterance.onerror = (event) => {
+      console.error('TTS Error:', event);
+      resetTTS();
+    };
+    ttsState.queue.push(utterance);
+    updateQueueDisplay();
+  });
+  processTTSQueue();
+}
+
+function playCustomAudio(audioData) {
+  const audio = new Audio(audioData);
+  audio.play().catch(error => console.error('Audio Playback Error:', error));
+}
+
 // Handle connect/disconnect
 connectButton.addEventListener('click', () => {
   if (client && client.readyState() === 'OPEN') {
@@ -509,8 +543,23 @@ function connectToChat() {
   });
 
   client.on('message', (channel, tags, message, self) => {
-    addChatMessage(tags['display-name'], message, tags);
-    queueTTSMessage(message, tags['display-name']);
+    const username = tags['display-name'] || 'Anonymous';
+    const lowerMessage = message.trim().toLowerCase();
+    // Check for custom command
+    if (window.getCustomCommand) {
+      const customCmd = window.getCustomCommand(lowerMessage);
+      if (customCmd) {
+        addChatMessage(username, message, tags);
+        if (customCmd.type === "tts") {
+          queueCustomTTSMessage(customCmd.message, customCmd.voice, username);
+        } else if (customCmd.type === "audio") {
+          playCustomAudio(customCmd.audioData);
+        }
+        return;
+      }
+    }
+    addChatMessage(username, message, tags);
+    queueTTSMessage(message, username);
   });
 }
 
@@ -744,5 +793,24 @@ restoreGambleDefaultsBtn.addEventListener('click', () => {
 channelInput.addEventListener('keypress', (e) => {
   if (e.key === 'Enter') {
     connectButton.click();
+  }
+});
+
+// Event listener to open Custom Commands modal
+customCommandsBtn.addEventListener('click', () => {
+  const customModal = document.getElementById('custom-commands-modal');
+  customModal.style.display = 'block';
+});
+
+// Clicking the close button on Custom Commands modal
+document.getElementById('close-custom-commands').addEventListener('click', () => {
+  document.getElementById('custom-commands-modal').style.display = 'none';
+});
+
+// Clicking outside the Custom Commands modal closes it
+window.addEventListener('click', (e) => {
+  const customModal = document.getElementById('custom-commands-modal');
+  if (e.target === customModal) {
+    customModal.style.display = 'none';
   }
 });
