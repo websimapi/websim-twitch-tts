@@ -470,7 +470,7 @@ function createMediaEmbed(url) {
     if (typeIndex !== -1) {
       const id = parts[typeIndex + 1];
       const type = parts[typeIndex];
-      embedUrl = `https://open.spotify.com/embed/${type}/${id}?autoplay=1`;
+      embedUrl = `https://spotify.com/embed/${type}/${id}?autoplay=1`;
     }
   } else if (urlObj.hostname.includes('soundcloud.com')) {
     embedUrl = `https://w.soundcloud.com/player/?url=${url}&auto_play=true`;
