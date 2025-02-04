@@ -67,7 +67,8 @@ const ttsState = {
 // Media Queue State
 const mediaQueueState = {
   enabled: localStorage.getItem('mediaQueueEnabled') === 'true' || false,
-  queue: []
+  queue: [],
+  currentlyPlaying: null
 };
 
 // Initialize TTS
@@ -445,6 +446,112 @@ function processTTSQueue() {
   }
 }
 
+// Function to create iframe based on URL
+function createMediaEmbed(url) {
+  const urlObj = new URL(url);
+  let embedUrl;
+  let iframe = document.createElement('iframe');
+  iframe.style.width = '100%';
+  iframe.style.height = '315px';
+  iframe.style.border = 'none';
+  iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+  
+  if (urlObj.hostname.includes('youtube.com') || urlObj.hostname.includes('youtu.be')) {
+    let videoId;
+    if (urlObj.hostname.includes('youtu.be')) {
+      videoId = urlObj.pathname.slice(1);
+    } else {
+      videoId = urlObj.searchParams.get('v');
+    }
+    embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1`;
+  } else if (urlObj.hostname.includes('spotify.com')) {
+    const parts = urlObj.pathname.split('/');
+    const typeIndex = parts.indexOf('track') || parts.indexOf('playlist') || parts.indexOf('album');
+    if (typeIndex !== -1) {
+      const id = parts[typeIndex + 1];
+      const type = parts[typeIndex];
+      embedUrl = `https://open.spotify.com/embed/${type}/${id}?autoplay=1`;
+    }
+  } else if (urlObj.hostname.includes('soundcloud.com')) {
+    embedUrl = `https://w.soundcloud.com/player/?url=${url}&auto_play=true`;
+  }
+
+  if (embedUrl) {
+    iframe.src = embedUrl;
+    return iframe;
+  }
+  return null;
+}
+
+// Function to process media queue
+function processMediaQueue() {
+  const mediaPlayer = document.getElementById('media-player');
+  if (!mediaQueueState.enabled || mediaQueueState.currentlyPlaying || mediaQueueState.queue.length === 0) {
+    return;
+  }
+
+  const nextItem = mediaQueueState.queue[0];
+  const embed = createMediaEmbed(nextItem.url);
+  
+  if (embed) {
+    mediaQueueState.currentlyPlaying = nextItem;
+    mediaPlayer.innerHTML = '';
+    mediaPlayer.appendChild(embed);
+    
+    // Set up a listener for when media ends
+    embed.onload = () => {
+      // Check periodically if iframe is still in document
+      const checkInterval = setInterval(() => {
+        if (!document.contains(embed)) {
+          clearInterval(checkInterval);
+          mediaQueueState.currentlyPlaying = null;
+          mediaQueueState.queue.shift();
+          updateMediaQueueDisplay();
+          processMediaQueue();
+        }
+      }, 1000);
+
+      // Add manual skip button
+      const skipButton = document.createElement('button');
+      skipButton.textContent = 'Skip';
+      skipButton.className = 'control-btn';
+      skipButton.onclick = () => {
+        clearInterval(checkInterval);
+        mediaQueueState.currentlyPlaying = null;
+        mediaQueueState.queue.shift();
+        updateMediaQueueDisplay();
+        processMediaQueue();
+      };
+      mediaPlayer.appendChild(skipButton);
+    };
+  } else {
+    // If we couldn't create an embed, skip to next item
+    mediaQueueState.queue.shift();
+    updateMediaQueueDisplay();
+    processMediaQueue();
+  }
+}
+
+// Update media queue display
+function updateMediaQueueDisplay() {
+  const mediaQueueDisplay = document.getElementById('media-queue-display');
+  
+  if (mediaQueueState.queue.length === 0) {
+    mediaQueueDisplay.innerHTML = '<div class="empty-queue">Media queue is empty</div>';
+    return;
+  }
+
+  mediaQueueDisplay.innerHTML = mediaQueueState.queue.map((item, index) => `
+    <div class="queue-item">
+      <span class="queue-number">${index + 1}.</span>
+      <span class="queue-username">${item.username}</span>
+      <span class="queue-text">
+        <a href="${item.url}" target="_blank">${item.url}</a>
+      </span>
+    </div>
+  `).join('');
+}
+
 // Handle connect/disconnect
 connectButton.addEventListener('click', () => {
   if (client && client.readyState() === 'OPEN') {
@@ -500,6 +607,7 @@ function disconnectFromChat() {
   }
 }
 
+// Modified addChatMessage function
 function addChatMessage(username, message, tags) {
   const messageDiv = document.createElement('div');
   messageDiv.className = 'chat-message';
@@ -596,22 +704,13 @@ function addChatMessage(username, message, tags) {
         
         // Add to media queue if enabled
         if (mediaQueueState.enabled) {
-          getMediaInfo(url).then(metadata => {
-            if (metadata) {
-              mediaQueueState.queue.push({
-                url,
-                username: username,
-                metadata,
-                timestamp: new Date()
-              });
-              updateMediaQueueDisplay();
-              
-              // Update the link element in chat
-              if (linkElement.lastChild) {
-                linkElement.lastChild.textContent = ` (${metadata.author} - ${metadata.title})`;
-              }
-            }
+          mediaQueueState.queue.push({
+            url,
+            username: username,
+            timestamp: new Date()
           });
+          updateMediaQueueDisplay();
+          processMediaQueue();
         }
       } else {
         const textNode = document.createTextNode(url);
@@ -649,24 +748,3 @@ channelInput.addEventListener('keypress', (e) => {
     connectButton.click();
   }
 });
-
-// Update media queue display
-function updateMediaQueueDisplay() {
-  const mediaQueueDisplay = document.getElementById('media-queue-display');
-  
-  if (mediaQueueState.queue.length === 0) {
-    mediaQueueDisplay.innerHTML = '<div class="empty-queue">Media queue is empty</div>';
-    return;
-  }
-
-  mediaQueueDisplay.innerHTML = mediaQueueState.queue.map((item, index) => `
-    <div class="queue-item">
-      <span class="queue-number">${index + 1}.</span>
-      <span class="queue-username">${item.username}</span>
-      <span class="queue-text">
-        <a href="${item.url}" target="_blank">${item.url}</a>
-        ${item.metadata ? ` (${item.metadata.author} - ${item.metadata.title})` : ''}
-      </span>
-    </div>
-  `).join('');
-}
