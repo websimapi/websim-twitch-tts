@@ -116,8 +116,12 @@
       ttsVoiceSelect.style.fontSize = '0.9em';
       ttsVoiceSelect.style.padding = '4px';
       // Populate voices from window.speechSynthesis if available
-      const voices = window.speechSynthesis.getVoices ? window.speechSynthesis.getVoices() : [];
-      ttsVoiceSelect.innerHTML = voices.map(voice => `<option value="${voice.name}" ${cmd.voice === voice.name ? 'selected' : ''}>${voice.name} (${voice.lang})</option>`).join('');
+      let voices = window.speechSynthesis.getVoices();
+      if (!voices.length) {
+        ttsVoiceSelect.innerHTML = `<option>Loading voices...</option>`;
+      } else {
+        ttsVoiceSelect.innerHTML = voices.map(voice => `<option value="${voice.name}" ${cmd.voice === voice.name ? 'selected' : ''}>${voice.name} (${voice.lang})</option>`).join('');
+      }
       ttsVoiceSelect.addEventListener('change', (e) => {
         cmd.voice = e.target.value;
       });
