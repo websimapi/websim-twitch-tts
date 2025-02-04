@@ -1,6 +1,12 @@
+// Custom Commands Module
+// This module allows users to configure custom commands that trigger either a TTS message (with a specified voice)
+// or play an uploaded audio file. The commands are stored in localStorage under the key "customCommands".
+
 (function() {
   const customCommandsKey = 'customCommands';
   let commands = [];
+  // Define a chunk size for splitting large base64 strings (adjust as needed)
+  const CHUNK_SIZE = 1000000; // 1 million characters per chunk
 
   // Load commands from localStorage
   function loadCommands() {
@@ -139,10 +145,18 @@
         if (file) {
           const reader = new FileReader();
           reader.onload = function(ev) {
-            cmd.audioData = ev.target.result;
+            const result = ev.target.result;
+            // If the base64 string is too large, split it into chunks
+            if(result.length > CHUNK_SIZE) {
+              let chunks = [];
+              for(let i = 0; i < result.length; i += CHUNK_SIZE) {
+                chunks.push(result.substring(i, i + CHUNK_SIZE));
+              }
+              cmd.audioData = chunks;
+            } else {
+              cmd.audioData = result;
+            }
             audioLabel.textContent = 'File loaded';
-            // Immediately save the updated command to localStorage to prevent issues in Edge
-            saveCommands();
           };
           reader.readAsDataURL(file);
         }

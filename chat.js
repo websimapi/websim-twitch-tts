@@ -496,6 +496,10 @@ function queueCustomTTSMessage(text, voiceName, username) {
 }
 
 function playCustomAudio(audioData) {
+  // If audioData is stored in chunks, join them.
+  if (Array.isArray(audioData)) {
+    audioData = audioData.join('');
+  }
   const audio = new Audio(audioData);
   audio.play().catch(error => console.error('Audio Playback Error:', error));
 }
