@@ -286,6 +286,11 @@ mediaQueueToggleButton.addEventListener('click', () => {
   mediaQueueToggleButton.textContent = mediaQueueState.enabled ? 'Media Queue Enabled' : 'Media Queue Disabled';
   mediaQueueToggleButton.classList.toggle('off', !mediaQueueState.enabled);
   saveMediaQueueState();
+  
+  // If enabling and there are items in queue, process them
+  if (mediaQueueState.enabled && mediaQueueState.queue.length > 0) {
+    processMediaQueue();
+  }
 });
 
 function addTTSUser(username, voiceName) {
@@ -470,7 +475,7 @@ function createMediaEmbed(url) {
     if (typeIndex !== -1) {
       const id = parts[typeIndex + 1];
       const type = parts[typeIndex];
-      embedUrl = `https://spotify.com/embed/${type}/${id}?autoplay=1`;
+      embedUrl = `https://open.spotify.com/embed/${type}/${id}?autoplay=1`;
     }
   } else if (urlObj.hostname.includes('soundcloud.com')) {
     embedUrl = `https://w.soundcloud.com/player/?url=${url}&auto_play=true`;
