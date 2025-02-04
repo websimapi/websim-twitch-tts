@@ -482,7 +482,7 @@ function createMediaEmbed(url) {
   } 
   // SoundCloud handling
   else if (urlObj.hostname.includes('soundcloud.com')) {
-    embedUrl = `https://w.soundcloud.com/player/?url=${encodeURIComponent(url)}&auto_play=true`;
+    embedUrl = `https://w.soundcloud.com/player/?url=${encodeURIComponent(url)}&auto_play=true&show_comments=false&show_user=false`;
   }
 
   if (embedUrl) {
@@ -492,7 +492,7 @@ function createMediaEmbed(url) {
   return null;
 }
 
-// Function to process media queue
+// Function to process media queue 
 function processMediaQueue() {
   const mediaPlayer = document.getElementById('media-player');
   
@@ -536,24 +536,6 @@ function processMediaQueue() {
   }
 }
 
-// Function to skip current media
-function skipCurrentMedia() {
-  const mediaPlayer = document.getElementById('media-player');
-  mediaQueueState.currentlyPlaying = null;
-  if (mediaQueueState.queue.length > 0) {
-    mediaQueueState.queue.shift();
-  }
-  updateMediaQueueDisplay();
-  
-  // Clear the player
-  mediaPlayer.innerHTML = '';
-  
-  // Process next item
-  setTimeout(() => {
-    processMediaQueue();
-  }, 100);
-}
-
 // Setup YouTube player with proper event handling
 function setupYouTubePlayer(iframe) {
   if (typeof YT === 'undefined') {
@@ -574,9 +556,15 @@ function setupYouTubePlayer(iframe) {
 function createYouTubePlayer(iframe) {
   new YT.Player(iframe.id, {
     events: {
+      'onReady': (event) => {
+        event.target.playVideo();
+      },
       'onStateChange': (event) => {
         if (event.data === YT.PlayerState.ENDED) {
           skipCurrentMedia();
+        } else if (event.data === YT.PlayerState.PAUSED) {
+          // Force play if paused
+          event.target.playVideo();
         }
       },
       'onError': (event) => {
@@ -585,6 +573,24 @@ function createYouTubePlayer(iframe) {
       }
     }
   });
+}
+
+// Function to skip current media
+function skipCurrentMedia() {
+  const mediaPlayer = document.getElementById('media-player');
+  mediaQueueState.currentlyPlaying = null;
+  if (mediaQueueState.queue.length > 0) {
+    mediaQueueState.queue.shift();
+  }
+  updateMediaQueueDisplay();
+  
+  // Clear the player
+  mediaPlayer.innerHTML = '';
+  
+  // Process next item
+  setTimeout(() => {
+    processMediaQueue();
+  }, 100);
 }
 
 // Function to check media status and advance queue if needed
