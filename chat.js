@@ -68,13 +68,14 @@ const ttsState = {
 const tts = window.speechSynthesis;
 
 // Variable for Gamble Settings
+const defaultGambleTriggers = ["!gamblevoice", "!gv", "bonesd3TC"];
 const gambleState = {
   cooldown: parseInt(localStorage.getItem('gambleCooldown')) || 0,
   enabled: localStorage.getItem('gambleEnabled') === 'false' ? false : true,
   lastUse: new Map()
 };
 // Load gamble triggers from localStorage or use default triggers
-let gambleTriggers = JSON.parse(localStorage.getItem('gambleTriggers') || '["!gamblevoice", "!gv"]');
+let gambleTriggers = JSON.parse(localStorage.getItem('gambleTriggers') || JSON.stringify(defaultGambleTriggers));
 
 // Function to extract title and author from URL (mock implementation)
 async function getMediaInfo(url) {
@@ -653,6 +654,7 @@ const gambleCooldownInput = document.getElementById('gamble-cooldown');
 const gambleEnabledCheckbox = document.getElementById('gamble-enabled');
 const gambleTriggersInput = document.getElementById('gamble-triggers');
 const saveGambleSettingsBtn = document.getElementById('save-gamble-settings');
+const restoreGambleDefaultsBtn = document.getElementById('restore-gamble-defaults');
 
 gambleCooldownInput.value = gambleState.cooldown;
 gambleEnabledCheckbox.checked = gambleState.enabled;
@@ -677,6 +679,12 @@ saveGambleSettingsBtn.addEventListener('click', () => {
   localStorage.setItem('gambleEnabled', gambleState.enabled);
   localStorage.setItem('gambleTriggers', JSON.stringify(gambleTriggers));
   gambleSettingsModal.style.display = 'none';
+});
+
+restoreGambleDefaultsBtn.addEventListener('click', () => {
+  gambleTriggers = [...defaultGambleTriggers];
+  gambleTriggersInput.value = gambleTriggers.join(', ');
+  localStorage.setItem('gambleTriggers', JSON.stringify(gambleTriggers));
 });
 
 // Handle Enter key in input

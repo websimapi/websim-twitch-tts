@@ -422,6 +422,20 @@
       width: auto;
       margin: 0;
     }
+
+    .restore-btn {
+      background: #ffc107;
+      color: #333;
+      border: none;
+      border-radius: 4px;
+      padding: 8px 16px;
+      cursor: pointer;
+      transition: background 0.2s ease;
+    }
+
+    .restore-btn:hover {
+      background: #e0a800;
+    }
   </style>
 </head>
 <body>
@@ -459,9 +473,12 @@
             </label>
             <label>
               Command Triggers (comma separated):
-              <input type="text" id="gamble-triggers" placeholder="e.g., !gamblevoice, !gv">
+              <input type="text" id="gamble-triggers" placeholder="e.g., !gamblevoice, !gv, bonesd3TC">
             </label>
-            <button id="save-gamble-settings" class="control-btn add-btn">Save Settings</button>
+            <div style="display: flex; gap:10px; flex-wrap: wrap;">
+              <button id="save-gamble-settings" class="control-btn add-btn">Save Settings</button>
+              <button id="restore-gamble-defaults" class="restore-btn">Restore Default Triggers</button>
+            </div>
           </div>
         </div>
       </div>
