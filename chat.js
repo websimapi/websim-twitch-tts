@@ -56,8 +56,8 @@ const ttsFilterToggleButton = document.getElementById('tts-filter-toggle');
 
 // TTS State with localStorage support
 const ttsState = {
-  enabled: localStorage.getItem('ttsEnabled') === 'true' || true,
-  filterEnabled: localStorage.getItem('ttsFilterEnabled') === 'true' || true,
+  enabled: localStorage.getItem('ttsEnabled') === 'false' ? false : true,
+  filterEnabled: localStorage.getItem('ttsFilterEnabled') === 'false' ? false : true,
   users: new Map(JSON.parse(localStorage.getItem('ttsUsers') || '[]')), 
   queue: [],
   speaking: false,
@@ -66,6 +66,15 @@ const ttsState = {
 
 // Initialize TTS
 const tts = window.speechSynthesis;
+
+// Variable for Gamble Settings
+const gambleState = {
+  cooldown: parseInt(localStorage.getItem('gambleCooldown')) || 0,
+  enabled: localStorage.getItem('gambleEnabled') === 'false' ? false : true,
+  lastUse: new Map()
+};
+// Load gamble triggers from localStorage or use default triggers
+let gambleTriggers = JSON.parse(localStorage.getItem('gambleTriggers') || '["!gamblevoice", "!gv"]');
 
 // Function to extract title and author from URL (mock implementation)
 async function getMediaInfo(url) {
@@ -79,7 +88,7 @@ function isMusicServiceUrl(url) {
   return url.match(/youtube\.com|youtu\.be|spotify\.com|soundcloud\.com/i);
 }
 
-// Function to create clickable link element
+// Function to create clickable link element with metadata placeholder
 function createLinkElement(url, metadata) {
   const link = document.createElement('a');
   link.href = url;
@@ -114,7 +123,7 @@ function splitMessageIntoChunks(text, maxLength = 180) {
   // Censor bad words for display purposes
   const censoredText = censorBadWords(text);
   
-  // Replace bad words with spaces for TTS
+  // Replace bad words with spaces for TTS when filter is enabled
   let ttsText = text;
   if (ttsState.filterEnabled) {
     badWordsData.forEach(category => {
@@ -209,52 +218,6 @@ tts.onvoiceschanged = () => {
   loadTTSState();
 };
 
-const gambleState = {
-  cooldown: parseInt(localStorage.getItem('gambleCooldown')) || 0,
-  enabled: localStorage.getItem('gambleEnabled') === 'true' || true,
-  lastUse: new Map()
-};
-
-const gambleSettingsBtn = document.getElementById('gamble-settings-btn');
-const gambleSettingsModal = document.getElementById('gamble-settings-modal');
-const gambleCooldownInput = document.getElementById('gamble-cooldown');
-const saveGambleSettingsBtn = document.getElementById('save-gamble-settings');
-const gambleEnabledCheckbox = document.getElementById('gamble-enabled');
-
-// Initialize gamble settings
-gambleCooldownInput.value = gambleState.cooldown;
-gambleEnabledCheckbox.checked = gambleState.enabled;
-
-// Gamble settings modal controls
-gambleSettingsBtn.addEventListener('click', () => {
-  gambleSettingsModal.style.display = 'block';
-});
-
-window.addEventListener('click', (e) => {
-  if (e.target === gambleSettingsModal) {
-    gambleSettingsModal.style.display = 'none';
-  }
-});
-
-saveGambleSettingsBtn.addEventListener('click', () => {
-  gambleState.cooldown = parseInt(gambleCooldownInput.value) || 0;
-  gambleState.enabled = gambleEnabledCheckbox.checked;
-  localStorage.setItem('gambleCooldown', gambleState.cooldown);
-  localStorage.setItem('gambleEnabled', gambleState.enabled);
-  gambleSettingsModal.style.display = 'none';
-});
-
-// Function to check if user is on cooldown
-function isOnGambleCooldown(username) {
-  if (gambleState.cooldown === 0) return false;
-  
-  const lastUse = gambleState.lastUse.get(username);
-  if (!lastUse) return false;
-  
-  const timeSinceLastUse = Date.now() - lastUse;
-  return timeSinceLastUse < (gambleState.cooldown * 1000);
-}
-
 populateVoiceList();
 loadTTSState();
 
@@ -307,7 +270,7 @@ function updateUserVoice(username, voiceName) {
   if (ttsState.users.has(username)) {
     ttsState.users.set(username, voiceName);
     saveTTSState();
-    updateTTSUsersList(); // This ensures the UI updates with the new voice
+    updateTTSUsersList();
   }
 }
 
@@ -350,8 +313,8 @@ function updateQueueDisplay() {
   const queueDisplay = document.getElementById('tts-queue-display');
   const currentDisplay = document.getElementById('tts-current-display');
   
-  // Update Currently Reading section
-  if (ttsState.speaking && ttsState.currentUtterance) {
+  // Update Last Read section
+  if (ttsState.currentUtterance) {
     currentDisplay.innerHTML = `
       <div class="current-item">
         <span class="current-icon">🔊</span>
@@ -360,7 +323,7 @@ function updateQueueDisplay() {
       </div>
     `;
   } else {
-    currentDisplay.innerHTML = '<div class="empty-current">Nothing currently playing</div>';
+    currentDisplay.innerHTML = '<div class="empty-current">Nothing read yet</div>';
   }
 
   // Update Queue section
@@ -378,8 +341,19 @@ function updateQueueDisplay() {
   `).join('');
 }
 
+// Modify queueTTSMessage to skip messages that start with a command trigger.
+// Only ignore if the message begins with one of the gamble triggers OR if it starts with "!" and is not an exception.
 function queueTTSMessage(text, username) {
-  if (!ttsState.enabled || !ttsState.users.has(username.toLowerCase()) || text.startsWith('!')) {
+  const lowerText = text.toLowerCase();
+  if (gambleTriggers.some(trigger => lowerText.startsWith(trigger.toLowerCase()))) {
+    // Do not enqueue TTS if the message starts with any valid gamble command trigger.
+    return;
+  }
+  if (!ttsState.enabled || !ttsState.users.has(username.toLowerCase())) {
+    return;
+  }
+  // Also ignore messages that start with "!" (commands) that are not gamble triggers.
+  if (text[0] === '!' && !gambleTriggers.some(trigger => lowerText.startsWith(trigger.toLowerCase()))) {
     return;
   }
 
@@ -399,7 +373,7 @@ function queueTTSMessage(text, username) {
     utterance.pitch = 1;
     utterance.volume = 1;
     utterance.username = username;
-    utterance.displayText = displayText; // Store censored version for display
+    utterance.displayText = displayText;
 
     utterance.onerror = (event) => {
       console.error('TTS Error:', event);
@@ -424,14 +398,14 @@ function processTTSQueue() {
   ttsState.currentUtterance = utterance;
   updateQueueDisplay();
   
-  utterance.onend = () => {
-    ttsState.speaking = false;
-    ttsState.currentUtterance = null;
-    processTTSQueue();
+  utterance.onstart = () => {
+    updateQueueDisplay(); // Update display when speech starts (Last Read)
   };
 
-  utterance.onstart = () => {
-    updateQueueDisplay(); // Update display when speech starts
+  utterance.onend = () => {
+    ttsState.speaking = false;
+    // Do not clear currentUtterance immediately, so Last Read remains displayed.
+    processTTSQueue();
   };
 
   utterance.onerror = () => {
@@ -530,8 +504,8 @@ function addChatMessage(username, message, tags) {
   }
   messageDiv.appendChild(usernameSpan);
 
-  // Handle !gamblevoice command
-  if (message.toLowerCase().startsWith('!gamblevoice') || message.toLowerCase().startsWith('!gv')) {
+  // Check for gamble command triggers using gambleTriggers array
+  if (gambleTriggers.some(trigger => message.toLowerCase().startsWith(trigger.toLowerCase()))) {
     if (!gambleState.enabled) {
       const disabledMessage = document.createElement('div');
       disabledMessage.className = 'chat-message system-message';
@@ -548,7 +522,6 @@ function addChatMessage(username, message, tags) {
     }
 
     if (ttsState.users.has(username.toLowerCase())) {
-      // Check cooldown
       if (isOnGambleCooldown(username.toLowerCase())) {
         const cooldownMessage = document.createElement('div');
         cooldownMessage.className = 'chat-message system-message';
@@ -587,15 +560,14 @@ function addChatMessage(username, message, tags) {
       // Queue TTS notification about voice change
       queueTTSMessage(`${username} rolled for a new voice`, 'System');
 
-      // If there's additional text after the command, read it with the new voice
-      const additionalText = message.toLowerCase().startsWith('!gv') ? 
-        message.slice(3).trim() : 
-        message.slice(12).trim();
+      // If there's additional text after the command trigger, read it with the new voice
+      const triggerMatched = gambleTriggers.find(trigger => message.toLowerCase().startsWith(trigger.toLowerCase()));
+      const additionalText = message.slice(triggerMatched.length).trim();
       if (additionalText) {
         queueTTSMessage(additionalText, username);
       }
     }
-    return; // Don't process further if it was a command
+    return; // Do not process further if message is a gamble command
   }
 
   // Add colon after username
@@ -662,6 +634,50 @@ function addChatMessage(username, message, tags) {
     chatBox.removeChild(chatBox.firstChild);
   }
 }
+
+// Check if a user is on gamble cooldown
+function isOnGambleCooldown(username) {
+  if (gambleState.cooldown === 0) return false;
+  
+  const lastUse = gambleState.lastUse.get(username);
+  if (!lastUse) return false;
+  
+  const timeSinceLastUse = Date.now() - lastUse;
+  return timeSinceLastUse < (gambleState.cooldown * 1000);
+}
+
+// Gamble Settings Modal Controls
+const gambleSettingsBtn = document.getElementById('gamble-settings-btn');
+const gambleSettingsModal = document.getElementById('gamble-settings-modal');
+const gambleCooldownInput = document.getElementById('gamble-cooldown');
+const gambleEnabledCheckbox = document.getElementById('gamble-enabled');
+const gambleTriggersInput = document.getElementById('gamble-triggers');
+const saveGambleSettingsBtn = document.getElementById('save-gamble-settings');
+
+gambleCooldownInput.value = gambleState.cooldown;
+gambleEnabledCheckbox.checked = gambleState.enabled;
+gambleTriggersInput.value = gambleTriggers.join(', ');
+
+gambleSettingsBtn.addEventListener('click', () => {
+  gambleSettingsModal.style.display = 'block';
+});
+
+window.addEventListener('click', (e) => {
+  if (e.target === gambleSettingsModal) {
+    gambleSettingsModal.style.display = 'none';
+  }
+});
+
+saveGambleSettingsBtn.addEventListener('click', () => {
+  gambleState.cooldown = parseInt(gambleCooldownInput.value) || 0;
+  gambleState.enabled = gambleEnabledCheckbox.checked;
+  // Update gambleTriggers based on comma separated values entered. Trim spaces.
+  gambleTriggers = gambleTriggersInput.value.split(',').map(trigger => trigger.trim()).filter(trigger => trigger);
+  localStorage.setItem('gambleCooldown', gambleState.cooldown);
+  localStorage.setItem('gambleEnabled', gambleState.enabled);
+  localStorage.setItem('gambleTriggers', JSON.stringify(gambleTriggers));
+  gambleSettingsModal.style.display = 'none';
+});
 
 // Handle Enter key in input
 channelInput.addEventListener('keypress', (e) => {

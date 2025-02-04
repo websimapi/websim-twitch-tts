@@ -444,7 +444,7 @@
         <button id="gamble-settings-btn" class="control-btn toggle-btn">Gamble Settings</button>
       </div>
 
-      <!-- Add Gamble Settings Modal -->
+      <!-- Gamble Settings Modal -->
       <div id="gamble-settings-modal" class="modal">
         <div class="modal-content">
           <h4>Gamble Voice Settings</h4>
@@ -456,6 +456,10 @@
             <label>
               Cooldown (seconds):
               <input type="number" id="gamble-cooldown" min="0" value="0">
+            </label>
+            <label>
+              Command Triggers (comma separated):
+              <input type="text" id="gamble-triggers" placeholder="e.g., !gamblevoice, !gv">
             </label>
             <button id="save-gamble-settings" class="control-btn add-btn">Save Settings</button>
           </div>
@@ -475,9 +479,9 @@
       <div class="queue-section">
         <h4>TTS Status</h4>
         <div class="current-section">
-          <h5>Currently Reading</h5>
+          <h5>Last Read</h5>
           <div id="tts-current-display" class="current-display">
-            <div class="empty-current">Nothing currently playing</div>
+            <div class="empty-current">Nothing read yet</div>
           </div>
         </div>
         <div class="queue-container">
