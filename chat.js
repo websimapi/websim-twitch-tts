@@ -4,6 +4,9 @@ let client = null;
 // Store bad words data
 let badWordsData = [];
 
+// Mute feature: store muted users (usernames in lowercase) in a Set loaded from localStorage
+let mutedUsers = new Set(JSON.parse(localStorage.getItem('mutedUsers') || '[]'));
+
 // Auto Add User setting: if enabled, automatically create a TTS user when not already set up
 let autoAddUserEnabled = localStorage.getItem('autoAddUserEnabled');
 autoAddUserEnabled = autoAddUserEnabled === null ? true : autoAddUserEnabled === 'true';
@@ -220,6 +223,11 @@ function saveTTSState() {
   localStorage.setItem('ttsUsers', JSON.stringify(Array.from(ttsState.users.entries())));
 }
 
+// Save muted users state to localStorage
+function saveMutedUsers() {
+  localStorage.setItem('mutedUsers', JSON.stringify(Array.from(mutedUsers)));
+}
+
 // Handle voice list change
 tts.onvoiceschanged = () => {
   populateVoiceList();
@@ -305,15 +313,33 @@ function updateTTSUsersList() {
         ).join('')}
       </select>
     `;
+    
+    // Determine mute button text based on whether the user is muted
+    const isMuted = mutedUsers.has(username);
+    const muteButton = `<button onclick="toggleMuteUser('${username}')" class="control-btn ${isMuted ? 'toggle-btn off' : 'toggle-btn'}">${isMuted ? 'Unmute' : 'Mute'}</button>`;
 
     div.innerHTML = `
       <span>${username}</span>
       ${voiceSelect}
+      ${muteButton}
       <button onclick="removeTTSUser('${username}')">×</button>
     `;
     ttsUsersList.appendChild(div);
   });
 }
+
+// Global function to toggle mute state for a user
+function toggleMuteUser(username) {
+  username = username.toLowerCase();
+  if (mutedUsers.has(username)) {
+    mutedUsers.delete(username);
+  } else {
+    mutedUsers.add(username);
+  }
+  saveMutedUsers();
+  updateTTSUsersList();
+}
+window.toggleMuteUser = toggleMuteUser; // Expose to global scope for inline events
 
 function clearTTSQueue() {
   ttsState.queue = [];
@@ -357,8 +383,12 @@ function updateQueueDisplay() {
 }
 
 // Modify queueTTSMessage to skip messages that start with a command trigger.
-// Only ignore if the message begins with one of the gamble triggers OR if it starts with "!" and is not an exception.
+// Also, if the user is muted, their messages are not queued.
 function queueTTSMessage(text, username) {
+  username = username.toLowerCase();
+  // Skip TTS if user is muted
+  if (mutedUsers.has(username)) return;
+  
   const lowerText = text.toLowerCase();
   if (gambleTriggers.some(trigger => lowerText.startsWith(trigger.toLowerCase()))) {
     // Do not enqueue TTS if the message starts with any valid gamble command trigger.
@@ -369,12 +399,12 @@ function queueTTSMessage(text, username) {
     return;
   }
   
-  if (!ttsState.enabled || !ttsState.users.has(username.toLowerCase())) {
+  if (!ttsState.enabled || !ttsState.users.has(username)) {
     return;
   }
 
   const chunks = splitMessageIntoChunks(text);
-  const voiceName = ttsState.users.get(username.toLowerCase());
+  const voiceName = ttsState.users.get(username);
   const voices = tts.getVoices();
   const voice = voices.find(v => v.name === voiceName);
 
