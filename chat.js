@@ -287,28 +287,9 @@ mediaQueueToggleButton.addEventListener('click', () => {
   mediaQueueToggleButton.classList.toggle('off', !mediaQueueState.enabled);
   saveMediaQueueState();
   
-  if (mediaQueueState.enabled) {
-    // Initialize media player with dummy content to enable autoplay
-    const mediaPlayer = document.getElementById('media-player');
-    mediaPlayer.innerHTML = `
-      <div class="media-frames">
-        <iframe id="youtube-frame" style="display:none" allow="autoplay"></iframe>
-        <iframe id="spotify-frame" style="display:none" allow="autoplay"></iframe>
-        <iframe id="soundcloud-frame" style="display:none" allow="autoplay"></iframe>
-      </div>
-    `;
-    
-    // Force user interaction to enable autoplay
-    const initButton = document.createElement('button');
-    initButton.textContent = 'Initialize Media Player';
-    initButton.className = 'control-btn';
-    initButton.onclick = () => {
-      initButton.remove();
-      if (mediaQueueState.queue.length > 0) {
-        processMediaQueue();
-      }
-    };
-    mediaPlayer.appendChild(initButton);
+  // If enabling and there are items in queue, process them
+  if (mediaQueueState.enabled && mediaQueueState.queue.length > 0) {
+    processMediaQueue();
   }
 });
 
@@ -470,51 +451,77 @@ function processTTSQueue() {
   }
 }
 
-// Function to create iframe based on URL
+// Function to create iframe based on URL with proper autoplay parameters
 function createMediaEmbed(url) {
   const urlObj = new URL(url);
-  let frameId;
   let embedUrl;
+  let iframe = document.createElement('iframe');
+  iframe.style.width = '100%';
+  iframe.style.height = '315px';
+  iframe.style.border = 'none';
+  iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
   
   if (urlObj.hostname.includes('youtube.com') || urlObj.hostname.includes('youtu.be')) {
-    let videoId;
+    let videoId = '';
     if (urlObj.hostname.includes('youtu.be')) {
       videoId = urlObj.pathname.slice(1);
     } else {
       videoId = urlObj.searchParams.get('v');
     }
-    embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&enablejsapi=1`;
-    frameId = 'youtube-frame';
+    if (videoId) {
+      embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&enablejsapi=1`;
+    }
   } else if (urlObj.hostname.includes('spotify.com')) {
-    const parts = urlObj.pathname.split('/');
-    const typeIndex = parts.indexOf('track') || parts.indexOf('playlist') || parts.indexOf('album');
-    if (typeIndex !== -1) {
-      const id = parts[typeIndex + 1];
-      const type = parts[typeIndex];
-      embedUrl = `https://open.spotify.com/embed/${type}/${id}?autoplay=1`;
-      frameId = 'spotify-frame';
+    const spotifyRegex = /(?:spotify\.com\/(track|playlist|album)\/([a-zA-Z0-9]+))/;
+    const match = url.match(spotifyRegex);
+    if (match) {
+      embedUrl = `https://open.spotify.com/embed/${match[1]}/${match[2]}?autoplay=1`;
     }
   } else if (urlObj.hostname.includes('soundcloud.com')) {
-    embedUrl = `https://w.soundcloud.com/player/?url=${url}&auto_play=true`;
-    frameId = 'soundcloud-frame';
+    embedUrl = `https://w.soundcloud.com/player/?url=${encodeURIComponent(url)}&auto_play=true&show_comments=false`;
   }
 
-  if (embedUrl && frameId) {
-    const frame = document.getElementById(frameId);
-    if (frame) {
-      // Hide all frames
-      document.querySelectorAll('.media-frames iframe').forEach(f => f.style.display = 'none');
-      
-      // Show and update the relevant frame
-      frame.style.display = 'block';
-      frame.style.width = '100%';
-      frame.style.height = '315px';
-      frame.style.border = 'none';
-      frame.src = embedUrl;
-      return frame;
-    }
+  if (embedUrl) {
+    iframe.src = embedUrl;
+
+    // Add event listener for messages from the iframe
+    window.addEventListener('message', function(event) {
+      // Handle YouTube player state changes
+      if (event.data && typeof event.data === 'string') {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.event === 'onStateChange' && data.info === 0) { // Video ended
+            playNextMedia();
+          }
+        } catch (e) {
+          // Not a JSON message, ignore
+        }
+      }
+    });
+
+    return iframe;
   }
   return null;
+}
+
+// Function to play next media in queue
+function playNextMedia() {
+  const mediaPlayer = document.getElementById('media-player');
+  
+  // Remove current media from queue
+  if (mediaQueueState.currentlyPlaying) {
+    mediaQueueState.queue.shift();
+    mediaQueueState.currentlyPlaying = null;
+  }
+  
+  // Process next item if queue not empty
+  if (mediaQueueState.queue.length > 0) {
+    processMediaQueue();
+  } else {
+    mediaPlayer.innerHTML = '';
+  }
+  
+  updateMediaQueueDisplay();
 }
 
 // Function to process media queue
@@ -529,68 +536,44 @@ function processMediaQueue() {
   
   if (embed) {
     mediaQueueState.currentlyPlaying = nextItem;
-    mediaPlayer.innerHTML = `
-      <div class="media-frames">
-        <iframe id="youtube-frame" style="display:none" allow="autoplay"></iframe>
-        <iframe id="spotify-frame" style="display:none" allow="autoplay"></iframe>
-        <iframe id="soundcloud-frame" style="display:none" allow="autoplay"></iframe>
-      </div>
-    `;
+    mediaPlayer.innerHTML = '';
     mediaPlayer.appendChild(embed);
     
-    // Set up a listener for when media ends
-    embed.onload = () => {
-      // Check periodically if iframe is still in document
-      const checkInterval = setInterval(() => {
-        if (!document.contains(embed)) {
-          clearInterval(checkInterval);
-          mediaQueueState.currentlyPlaying = null;
-          mediaQueueState.queue.shift();
-          updateMediaQueueDisplay();
-          processMediaQueue();
-        }
-      }, 1000);
+    // Add skip button
+    const skipButton = document.createElement('button');
+    skipButton.textContent = 'Skip';
+    skipButton.className = 'control-btn';
+    skipButton.onclick = playNextMedia;
+    mediaPlayer.appendChild(skipButton);
 
-      // Add manual skip button
-      const skipButton = document.createElement('button');
-      skipButton.textContent = 'Skip';
-      skipButton.className = 'control-btn';
-      skipButton.onclick = () => {
-        clearInterval(checkInterval);
-        mediaQueueState.currentlyPlaying = null;
-        mediaQueueState.queue.shift();
-        updateMediaQueueDisplay();
-        processMediaQueue();
-      };
-      mediaPlayer.appendChild(skipButton);
+    // Setup automatic transition to next item
+    embed.onload = () => {
+      // For SoundCloud
+      if (nextItem.url.includes('soundcloud.com')) {
+        const widget = SC.Widget(embed);
+        widget.bind(SC.Widget.Events.FINISH, playNextMedia);
+      }
+      
+      // For Spotify, poll for player state
+      if (nextItem.url.includes('spotify.com')) {
+        const checkSpotifyInterval = setInterval(() => {
+          if (!document.contains(embed)) {
+            clearInterval(checkSpotifyInterval);
+            playNextMedia();
+          }
+        }, 1000);
+      }
     };
   } else {
-    // If we couldn't create an embed, skip to next item
-    mediaQueueState.queue.shift();
-    updateMediaQueueDisplay();
-    processMediaQueue();
+    // If embed creation failed, skip to next
+    playNextMedia();
   }
 }
 
-// Update media queue display
-function updateMediaQueueDisplay() {
-  const mediaQueueDisplay = document.getElementById('media-queue-display');
-  
-  if (mediaQueueState.queue.length === 0) {
-    mediaQueueDisplay.innerHTML = '<div class="empty-queue">Media queue is empty</div>';
-    return;
-  }
-
-  mediaQueueDisplay.innerHTML = mediaQueueState.queue.map((item, index) => `
-    <div class="queue-item">
-      <span class="queue-number">${index + 1}.</span>
-      <span class="queue-username">${item.username}</span>
-      <span class="queue-text">
-        <a href="${item.url}" target="_blank">${item.url}</a>
-      </span>
-    </div>
-  `).join('');
-}
+// Add SoundCloud Widget API
+const scScript = document.createElement('script');
+scScript.src = 'https://w.soundcloud.com/player/api.js';
+document.head.appendChild(scScript);
 
 // Handle connect/disconnect
 connectButton.addEventListener('click', () => {
@@ -626,30 +609,6 @@ function connectToChat() {
     statusDiv.className = 'status connected';
     statusDiv.textContent = `Connected to ${channel}'s chat`;
     connectButton.textContent = 'Disconnect';
-    
-    // Initialize media frames if queue is enabled
-    if (mediaQueueState.enabled) {
-      const mediaPlayer = document.getElementById('media-player');
-      mediaPlayer.innerHTML = `
-        <div class="media-frames">
-          <iframe id="youtube-frame" style="display:none" allow="autoplay"></iframe>
-          <iframe id="spotify-frame" style="display:none" allow="autoplay"></iframe>
-          <iframe id="soundcloud-frame" style="display:none" allow="autoplay"></iframe>
-        </div>
-      `;
-      
-      // Force user interaction to enable autoplay
-      const initButton = document.createElement('button');
-      initButton.textContent = 'Initialize Media Player';
-      initButton.className = 'control-btn';
-      initButton.onclick = () => {
-        initButton.remove();
-        if (mediaQueueState.queue.length > 0) {
-          processMediaQueue();
-        }
-      };
-      mediaPlayer.appendChild(initButton);
-    }
   });
 
   client.on('disconnected', () => {
@@ -812,3 +771,23 @@ channelInput.addEventListener('keypress', (e) => {
     connectButton.click();
   }
 });
+
+// Update media queue display
+function updateMediaQueueDisplay() {
+  const mediaQueueDisplay = document.getElementById('media-queue-display');
+  
+  if (mediaQueueState.queue.length === 0) {
+    mediaQueueDisplay.innerHTML = '<div class="empty-queue">Media queue is empty</div>';
+    return;
+  }
+
+  mediaQueueDisplay.innerHTML = mediaQueueState.queue.map((item, index) => `
+    <div class="queue-item">
+      <span class="queue-number">${index + 1}.</span>
+      <span class="queue-username">${item.username}</span>
+      <span class="queue-text">
+        <a href="${item.url}" target="_blank">${item.url}</a>
+      </span>
+    </div>
+  `).join('');
+}
