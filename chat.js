@@ -68,6 +68,7 @@
   const ttsState = {
     enabled: localStorage.getItem('ttsEnabled') === 'false' ? false : true,
     filterEnabled: localStorage.getItem('ttsFilterEnabled') === 'false' ? false : true,
+    // Initialize users from localStorage; will be updated on loadTTSState to refresh after import.
     users: new Map(JSON.parse(localStorage.getItem('ttsUsers') || '[]')), 
     queue: [],
     speaking: false,
@@ -197,6 +198,8 @@
 
   // Load TTS state from localStorage and update UI
   function loadTTSState() {
+    // Update ttsState.users from localStorage so that imported settings refresh the users list correctly.
+    ttsState.users = new Map(JSON.parse(localStorage.getItem('ttsUsers') || '[]'));
     ttsToggleButton.textContent = ttsState.enabled ? 'TTS Enabled' : 'TTS Disabled';
     ttsToggleButton.classList.toggle('off', !ttsState.enabled);
     ttsFilterToggleButton.textContent = ttsState.filterEnabled ? 'Filter Enabled' : 'Filter Disabled';
