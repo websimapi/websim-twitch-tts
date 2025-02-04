@@ -212,6 +212,7 @@ tts.onvoiceschanged = () => {
 const gambleState = {
   cooldown: parseInt(localStorage.getItem('gambleCooldown')) || 0,
   enabled: localStorage.getItem('gambleEnabled') === 'true' || true,
+  ttsEnabled: localStorage.getItem('gambleTtsEnabled') === 'true' || true,
   lastUse: new Map()
 };
 
@@ -220,10 +221,12 @@ const gambleSettingsModal = document.getElementById('gamble-settings-modal');
 const gambleCooldownInput = document.getElementById('gamble-cooldown');
 const saveGambleSettingsBtn = document.getElementById('save-gamble-settings');
 const gambleEnabledCheckbox = document.getElementById('gamble-enabled');
+const gambleTtsEnabledCheckbox = document.getElementById('gamble-tts-enabled');
 
 // Initialize gamble settings
 gambleCooldownInput.value = gambleState.cooldown;
 gambleEnabledCheckbox.checked = gambleState.enabled;
+gambleTtsEnabledCheckbox.checked = gambleState.ttsEnabled;
 
 // Gamble settings modal controls
 gambleSettingsBtn.addEventListener('click', () => {
@@ -239,8 +242,10 @@ window.addEventListener('click', (e) => {
 saveGambleSettingsBtn.addEventListener('click', () => {
   gambleState.cooldown = parseInt(gambleCooldownInput.value) || 0;
   gambleState.enabled = gambleEnabledCheckbox.checked;
+  gambleState.ttsEnabled = gambleTtsEnabledCheckbox.checked;
   localStorage.setItem('gambleCooldown', gambleState.cooldown);
   localStorage.setItem('gambleEnabled', gambleState.enabled);
+  localStorage.setItem('gambleTtsEnabled', gambleState.ttsEnabled);
   gambleSettingsModal.style.display = 'none';
 });
 
@@ -542,8 +547,10 @@ function addChatMessage(username, message, tags) {
       chatBox.appendChild(disabledMessage);
       chatBox.scrollTop = chatBox.scrollHeight;
       
-      // Queue TTS message about disabled state
-      queueTTSMessage("Gamble Voice command is currently disabled", "System");
+      // Queue TTS message about disabled state if TTS notifications are enabled
+      if (gambleState.ttsEnabled) {
+        queueTTSMessage("Gamble Voice command is currently disabled", "System");
+      }
       return;
     }
 
@@ -584,8 +591,10 @@ function addChatMessage(username, message, tags) {
       chatBox.appendChild(systemMessage);
       chatBox.scrollTop = chatBox.scrollHeight;
 
-      // Queue TTS notification about voice change
-      queueTTSMessage(`${username} rolled for a new voice and got ${newVoice}`, "System");
+      // Queue TTS notification about voice change if enabled
+      if (gambleState.ttsEnabled) {
+        queueTTSMessage(`${username} rolled for a new voice`, 'System');
+      }
 
       // If there's additional text after the command, read it with the new voice
       const additionalText = message.toLowerCase().startsWith('!gv') ? 
