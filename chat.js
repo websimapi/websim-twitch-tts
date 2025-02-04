@@ -287,9 +287,28 @@ mediaQueueToggleButton.addEventListener('click', () => {
   mediaQueueToggleButton.classList.toggle('off', !mediaQueueState.enabled);
   saveMediaQueueState();
   
-  // If enabling and there are items in queue, process them
-  if (mediaQueueState.enabled && mediaQueueState.queue.length > 0) {
-    processMediaQueue();
+  if (mediaQueueState.enabled) {
+    // Initialize media player with dummy content to enable autoplay
+    const mediaPlayer = document.getElementById('media-player');
+    mediaPlayer.innerHTML = `
+      <div class="media-frames">
+        <iframe id="youtube-frame" style="display:none" allow="autoplay"></iframe>
+        <iframe id="spotify-frame" style="display:none" allow="autoplay"></iframe>
+        <iframe id="soundcloud-frame" style="display:none" allow="autoplay"></iframe>
+      </div>
+    `;
+    
+    // Force user interaction to enable autoplay
+    const initButton = document.createElement('button');
+    initButton.textContent = 'Initialize Media Player';
+    initButton.className = 'control-btn';
+    initButton.onclick = () => {
+      initButton.remove();
+      if (mediaQueueState.queue.length > 0) {
+        processMediaQueue();
+      }
+    };
+    mediaPlayer.appendChild(initButton);
   }
 });
 
@@ -454,12 +473,8 @@ function processTTSQueue() {
 // Function to create iframe based on URL
 function createMediaEmbed(url) {
   const urlObj = new URL(url);
+  let frameId;
   let embedUrl;
-  let iframe = document.createElement('iframe');
-  iframe.style.width = '100%';
-  iframe.style.height = '315px';
-  iframe.style.border = 'none';
-  iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
   
   if (urlObj.hostname.includes('youtube.com') || urlObj.hostname.includes('youtu.be')) {
     let videoId;
@@ -468,7 +483,8 @@ function createMediaEmbed(url) {
     } else {
       videoId = urlObj.searchParams.get('v');
     }
-    embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1`;
+    embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&enablejsapi=1`;
+    frameId = 'youtube-frame';
   } else if (urlObj.hostname.includes('spotify.com')) {
     const parts = urlObj.pathname.split('/');
     const typeIndex = parts.indexOf('track') || parts.indexOf('playlist') || parts.indexOf('album');
@@ -476,14 +492,27 @@ function createMediaEmbed(url) {
       const id = parts[typeIndex + 1];
       const type = parts[typeIndex];
       embedUrl = `https://open.spotify.com/embed/${type}/${id}?autoplay=1`;
+      frameId = 'spotify-frame';
     }
   } else if (urlObj.hostname.includes('soundcloud.com')) {
     embedUrl = `https://w.soundcloud.com/player/?url=${url}&auto_play=true`;
+    frameId = 'soundcloud-frame';
   }
 
-  if (embedUrl) {
-    iframe.src = embedUrl;
-    return iframe;
+  if (embedUrl && frameId) {
+    const frame = document.getElementById(frameId);
+    if (frame) {
+      // Hide all frames
+      document.querySelectorAll('.media-frames iframe').forEach(f => f.style.display = 'none');
+      
+      // Show and update the relevant frame
+      frame.style.display = 'block';
+      frame.style.width = '100%';
+      frame.style.height = '315px';
+      frame.style.border = 'none';
+      frame.src = embedUrl;
+      return frame;
+    }
   }
   return null;
 }
@@ -500,7 +529,13 @@ function processMediaQueue() {
   
   if (embed) {
     mediaQueueState.currentlyPlaying = nextItem;
-    mediaPlayer.innerHTML = '';
+    mediaPlayer.innerHTML = `
+      <div class="media-frames">
+        <iframe id="youtube-frame" style="display:none" allow="autoplay"></iframe>
+        <iframe id="spotify-frame" style="display:none" allow="autoplay"></iframe>
+        <iframe id="soundcloud-frame" style="display:none" allow="autoplay"></iframe>
+      </div>
+    `;
     mediaPlayer.appendChild(embed);
     
     // Set up a listener for when media ends
@@ -591,6 +626,30 @@ function connectToChat() {
     statusDiv.className = 'status connected';
     statusDiv.textContent = `Connected to ${channel}'s chat`;
     connectButton.textContent = 'Disconnect';
+    
+    // Initialize media frames if queue is enabled
+    if (mediaQueueState.enabled) {
+      const mediaPlayer = document.getElementById('media-player');
+      mediaPlayer.innerHTML = `
+        <div class="media-frames">
+          <iframe id="youtube-frame" style="display:none" allow="autoplay"></iframe>
+          <iframe id="spotify-frame" style="display:none" allow="autoplay"></iframe>
+          <iframe id="soundcloud-frame" style="display:none" allow="autoplay"></iframe>
+        </div>
+      `;
+      
+      // Force user interaction to enable autoplay
+      const initButton = document.createElement('button');
+      initButton.textContent = 'Initialize Media Player';
+      initButton.className = 'control-btn';
+      initButton.onclick = () => {
+        initButton.remove();
+        if (mediaQueueState.queue.length > 0) {
+          processMediaQueue();
+        }
+      };
+      mediaPlayer.appendChild(initButton);
+    }
   });
 
   client.on('disconnected', () => {
