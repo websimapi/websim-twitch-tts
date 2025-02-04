@@ -69,8 +69,33 @@ const tts = window.speechSynthesis;
 
 // Function to extract title and author from URL (mock implementation)
 async function getMediaInfo(url) {
-  // This would need to be implemented with proper API calls
-  // For now, return null to indicate no info available
+  // Extract video ID for YouTube URLs
+  const ytMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/);
+  if (ytMatch) {
+    try {
+      const videoId = ytMatch[1];
+      
+      // Here you would make the actual API call to fetch metadata
+      // Example using YouTube Data API (requires API key):
+      /*
+      const response = await fetch(`https://www.googleapis.com/youtube/v3/videos?id=${videoId}&part=snippet&key=YOUR_API_KEY`);
+      const data = await response.json();
+      if (data.items && data.items[0]) {
+        const snippet = data.items[0].snippet;
+        return `${snippet.channelTitle} - ${snippet.title}`;
+      }
+      */
+      
+      // For now, return null to indicate no info available
+      // Once you implement the API call, this will return actual metadata
+      return null;
+    } catch (error) {
+      console.error('Error fetching YouTube metadata:', error);
+      return null;
+    }
+  }
+  
+  // Handle other music services similarly
   return null;
 }
 
