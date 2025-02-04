@@ -283,6 +283,17 @@
   function updateUserVoice(username, voiceName) {
     if (ttsState.users.has(username)) {
       ttsState.users.set(username, voiceName);
+      // Update any queued utterances for this user with the new voice
+      const voices = tts.getVoices();
+      const newVoice = voices.find(v => v.name === voiceName);
+      if (newVoice) {
+        ttsState.queue.forEach(utterance => {
+          if (utterance.username === username) {
+            utterance.voice = newVoice;
+          }
+        });
+        // Note: Changing the voice of an utterance that's already speaking is not supported.
+      }
       saveTTSState();
       updateTTSUsersList();
     }
