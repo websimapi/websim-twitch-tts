@@ -64,33 +64,13 @@ const ttsState = {
   currentUtterance: null
 };
 
-// Media Queue State
-const mediaQueueState = {
-  enabled: localStorage.getItem('mediaQueueEnabled') === 'true' || false,
-  queue: [],
-  currentlyPlaying: null
-};
-
 // Initialize TTS
 const tts = window.speechSynthesis;
 
 // Function to extract title and author from URL (mock implementation)
 async function getMediaInfo(url) {
-  // TODO: Implement actual API calls to get media info
-  // Mock implementation for now
-  const mockData = {
-    'youtube.com': { author: 'Sample Artist', title: 'Sample YouTube Song' },
-    'youtu.be': { author: 'Sample Artist', title: 'Sample YouTube Song' },
-    'spotify.com': { author: 'Sample Artist', title: 'Sample Spotify Track' },
-    'soundcloud.com': { author: 'Sample Artist', title: 'Sample SoundCloud Track' }
-  };
-  
-  const domain = new URL(url).hostname.replace('www.', '');
-  const service = Object.keys(mockData).find(key => domain.includes(key));
-  
-  if (service) {
-    return mockData[service];
-  }
+  // This would need to be implemented with proper API calls
+  // For now, return null to indicate no info available
   return null;
 }
 
@@ -223,31 +203,55 @@ function saveTTSState() {
   localStorage.setItem('ttsUsers', JSON.stringify(Array.from(ttsState.users.entries())));
 }
 
-// Load media queue state from localStorage
-function loadMediaQueueState() {
-  const mediaQueueToggleButton = document.getElementById('media-queue-toggle');
-  mediaQueueToggleButton.textContent = mediaQueueState.enabled ? 'Media Queue Enabled' : 'Media Queue Disabled';
-  mediaQueueToggleButton.classList.toggle('off', !mediaQueueState.enabled);
-  updateMediaQueueDisplay();
-}
-
-// Save media queue state to localStorage
-function saveMediaQueueState() {
-  localStorage.setItem('mediaQueueEnabled', mediaQueueState.enabled);
-}
-
 // Handle voice list change
 tts.onvoiceschanged = () => {
   populateVoiceList();
   loadTTSState();
 };
 
-// Initialize buttons
-const mediaQueueToggleButton = document.getElementById('media-queue-toggle');
+const gambleState = {
+  cooldown: parseInt(localStorage.getItem('gambleCooldown')) || 0,
+  lastUse: new Map()
+};
+
+const gambleSettingsBtn = document.getElementById('gamble-settings-btn');
+const gambleSettingsModal = document.getElementById('gamble-settings-modal');
+const gambleCooldownInput = document.getElementById('gamble-cooldown');
+const saveGambleSettingsBtn = document.getElementById('save-gamble-settings');
+
+// Initialize gamble settings
+gambleCooldownInput.value = gambleState.cooldown;
+
+// Gamble settings modal controls
+gambleSettingsBtn.addEventListener('click', () => {
+  gambleSettingsModal.style.display = 'block';
+});
+
+window.addEventListener('click', (e) => {
+  if (e.target === gambleSettingsModal) {
+    gambleSettingsModal.style.display = 'none';
+  }
+});
+
+saveGambleSettingsBtn.addEventListener('click', () => {
+  gambleState.cooldown = parseInt(gambleCooldownInput.value) || 0;
+  localStorage.setItem('gambleCooldown', gambleState.cooldown);
+  gambleSettingsModal.style.display = 'none';
+});
+
+// Function to check if user is on cooldown
+function isOnGambleCooldown(username) {
+  if (gambleState.cooldown === 0) return false;
+  
+  const lastUse = gambleState.lastUse.get(username);
+  if (!lastUse) return false;
+  
+  const timeSinceLastUse = Date.now() - lastUse;
+  return timeSinceLastUse < (gambleState.cooldown * 1000);
+}
 
 populateVoiceList();
 loadTTSState();
-loadMediaQueueState();
 
 // TTS Controls
 ttsToggleButton.addEventListener('click', () => {
@@ -278,14 +282,6 @@ ttsFilterToggleButton.addEventListener('click', () => {
   ttsFilterToggleButton.textContent = ttsState.filterEnabled ? 'Filter Enabled' : 'Filter Disabled';
   ttsFilterToggleButton.classList.toggle('off', !ttsState.filterEnabled);
   saveTTSState();
-});
-
-// Media queue toggle handler
-mediaQueueToggleButton.addEventListener('click', () => {
-  mediaQueueState.enabled = !mediaQueueState.enabled;
-  mediaQueueToggleButton.textContent = mediaQueueState.enabled ? 'Media Queue Enabled' : 'Media Queue Disabled';
-  mediaQueueToggleButton.classList.toggle('off', !mediaQueueState.enabled);
-  saveMediaQueueState();
 });
 
 function addTTSUser(username, voiceName) {
@@ -446,207 +442,6 @@ function processTTSQueue() {
   }
 }
 
-// Function to create iframe based on URL
-function createMediaEmbed(url) {
-  const urlObj = new URL(url);
-  let embedUrl;
-  let iframe = document.createElement('iframe');
-  
-  // Set common iframe properties
-  iframe.style.width = '100%';
-  iframe.style.height = '315px'; 
-  iframe.style.border = 'none';
-  iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
-  iframe.allowFullscreen = true;
-
-  // YouTube handling
-  if (urlObj.hostname.includes('youtube.com') || urlObj.hostname.includes('youtu.be')) {
-    let videoId;
-    if (urlObj.hostname.includes('youtu.be')) {
-      videoId = urlObj.pathname.slice(1);
-    } else {
-      videoId = urlObj.searchParams.get('v');
-    }
-    embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=0&loop=1&playlist=${videoId}&playsinline=1&enablejsapi=1`;
-    iframe.id = `youtube-${Date.now()}`;
-  } 
-  // Spotify handling
-  else if (urlObj.hostname.includes('spotify.com')) {
-    const parts = urlObj.pathname.split('/');
-    const typeIndex = parts.indexOf('track') || parts.indexOf('playlist') || parts.indexOf('album');
-    if (typeIndex !== -1) {
-      const id = parts[typeIndex + 1];
-      const type = parts[typeIndex];
-      embedUrl = `https://open.spotify.com/embed/${type}/${id}?autoplay=1`;
-    }
-  } 
-  // SoundCloud handling
-  else if (urlObj.hostname.includes('soundcloud.com')) {
-    embedUrl = `https://w.soundcloud.com/player/?url=${encodeURIComponent(url)}&auto_play=true&show_comments=false&show_user=false`;
-  }
-
-  if (embedUrl) {
-    iframe.src = embedUrl;
-    return iframe;
-  }
-  return null;
-}
-
-// Function to process media queue 
-function processMediaQueue() {
-  const mediaPlayer = document.getElementById('media-player');
-  
-  if (!mediaQueueState.enabled || mediaQueueState.currentlyPlaying || mediaQueueState.queue.length === 0) {
-    if (!mediaQueueState.queue.length) {
-      mediaPlayer.innerHTML = '';
-    }
-    return;
-  }
-
-  const nextItem = mediaQueueState.queue[0];
-  const embed = createMediaEmbed(nextItem.url);
-  
-  if (embed) {
-    mediaQueueState.currentlyPlaying = nextItem;
-    mediaPlayer.innerHTML = '';
-    mediaPlayer.appendChild(embed);
-    
-    // Add manual skip button
-    const skipButton = document.createElement('button');
-    skipButton.textContent = 'Skip';
-    skipButton.className = 'control-btn';
-    skipButton.onclick = skipCurrentMedia;
-    mediaPlayer.appendChild(skipButton);
-
-    // Setup auto-advance based on media type
-    const urlObj = new URL(nextItem.url);
-    if (urlObj.hostname.includes('youtube.com') || urlObj.hostname.includes('youtu.be')) {
-      setupYouTubePlayer(embed);
-    } else {
-      // For non-YouTube media, set a timeout to check status
-      setTimeout(checkMediaStatus, 5000);
-    }
-
-    // If queue becomes empty, loop back
-    if (mediaQueueState.queue.length === 1) {
-      mediaQueueState.queue = [...mediaQueueState.queue];
-    }
-  } else {
-    skipCurrentMedia();
-  }
-}
-
-// Setup YouTube player with proper event handling
-function setupYouTubePlayer(iframe) {
-  if (typeof YT === 'undefined') {
-    // Load YouTube API if not already loaded
-    const tag = document.createElement('script');
-    tag.src = "https://www.youtube.com/iframe_api";
-    const firstScriptTag = document.getElementsByTagName('script')[0];
-    firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
-
-    window.onYouTubeIframeAPIReady = () => {
-      createYouTubePlayer(iframe);
-    };
-  } else {
-    createYouTubePlayer(iframe);
-  }
-}
-
-function createYouTubePlayer(iframe) {
-  new YT.Player(iframe.id, {
-    events: {
-      'onReady': (event) => {
-        event.target.playVideo();
-      },
-      'onStateChange': (event) => {
-        if (event.data === YT.PlayerState.ENDED) {
-          skipCurrentMedia();
-        } else if (event.data === YT.PlayerState.PAUSED) {
-          // Force play if paused
-          event.target.playVideo();
-        }
-      },
-      'onError': (event) => {
-        console.error('YouTube Player Error:', event);
-        skipCurrentMedia();
-      }
-    }
-  });
-}
-
-// Function to skip current media
-function skipCurrentMedia() {
-  const mediaPlayer = document.getElementById('media-player');
-  mediaQueueState.currentlyPlaying = null;
-  if (mediaQueueState.queue.length > 0) {
-    mediaQueueState.queue.shift();
-  }
-  updateMediaQueueDisplay();
-  
-  // Clear the player
-  mediaPlayer.innerHTML = '';
-  
-  // Process next item
-  setTimeout(() => {
-    processMediaQueue();
-  }, 100);
-}
-
-// Function to check media status and advance queue if needed
-function checkMediaStatus() {
-  if (mediaQueueState.currentlyPlaying) {
-    const iframe = document.querySelector('#media-player iframe');
-    if (!iframe) {
-      skipCurrentMedia();
-    } else {
-      // Schedule next check
-      setTimeout(checkMediaStatus, 5000);
-    }
-  }
-}
-
-// Load required APIs
-function loadMediaAPIs() {
-  // Load YouTube API
-  if (!window.YT) {
-    const tag = document.createElement('script');
-    tag.src = "https://www.youtube.com/iframe_api";
-    const firstScriptTag = document.getElementsByTagName('script')[0];
-    firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
-  }
-  
-  // Load SoundCloud API
-  if (!window.SC) {
-    const sc = document.createElement('script');
-    sc.src = "https://w.soundcloud.com/player/api.js";
-    document.head.appendChild(sc);
-  }
-}
-
-// Call API loader when page loads
-loadMediaAPIs();
-
-// Update media queue display
-function updateMediaQueueDisplay() {
-  const mediaQueueDisplay = document.getElementById('media-queue-display');
-  
-  if (mediaQueueState.queue.length === 0) {
-    mediaQueueDisplay.innerHTML = '<div class="empty-queue">Media queue is empty</div>';
-    return;
-  }
-
-  mediaQueueDisplay.innerHTML = mediaQueueState.queue.map((item, index) => `
-    <div class="queue-item">
-      <span class="queue-number">${index + 1}.</span>
-      <span class="queue-username">${item.username}</span>
-      <span class="queue-text">
-        <a href="${item.url}" target="_blank">${item.url}</a>
-      </span>
-    </div>
-  `).join('');
-}
-
 // Handle connect/disconnect
 connectButton.addEventListener('click', () => {
   if (client && client.readyState() === 'OPEN') {
@@ -702,7 +497,6 @@ function disconnectFromChat() {
   }
 }
 
-// Modified addChatMessage function
 function addChatMessage(username, message, tags) {
   const messageDiv = document.createElement('div');
   messageDiv.className = 'chat-message';
@@ -734,22 +528,39 @@ function addChatMessage(username, message, tags) {
   // Handle !gamblevoice command
   if (message.toLowerCase().startsWith('!gamblevoice') || message.toLowerCase().startsWith('!gv')) {
     if (ttsState.users.has(username.toLowerCase())) {
+      // Check cooldown
+      if (isOnGambleCooldown(username.toLowerCase())) {
+        // Add cooldown notification message
+        const cooldownMessage = document.createElement('div');
+        cooldownMessage.className = 'chat-message system-message';
+        const remainingTime = Math.ceil((gambleState.cooldown * 1000 - (Date.now() - gambleState.lastUse.get(username.toLowerCase()))) / 1000);
+        cooldownMessage.innerHTML = `
+          <span class="timestamp">${new Date().toLocaleTimeString()}</span>
+          <span class="system-text">${username} must wait ${remainingTime} seconds before using gamble voice again</span>
+        `;
+        chatBox.appendChild(cooldownMessage);
+        chatBox.scrollTop = chatBox.scrollHeight;
+        return;
+      }
+
       const voices = tts.getVoices();
       const currentVoice = ttsState.users.get(username.toLowerCase());
       let newVoice;
       do {
-        // Pick a random voice that's different from the current one
         newVoice = voices[Math.floor(Math.random() * voices.length)].name;
       } while (newVoice === currentVoice && voices.length > 1);
       
       updateUserVoice(username.toLowerCase(), newVoice);
+      
+      // Update last use time
+      gambleState.lastUse.set(username.toLowerCase(), Date.now());
       
       // Add a system message about the voice change
       const systemMessage = document.createElement('div');
       systemMessage.className = 'chat-message system-message';
       systemMessage.innerHTML = `
         <span class="timestamp">${new Date().toLocaleTimeString()}</span>
-        <span class="system-text"> ${username} rolled and got a new voice: ${newVoice}</span>
+        <span class="system-text">${username} rolled and got a new voice: ${newVoice}</span>
       `;
       chatBox.appendChild(systemMessage);
       chatBox.scrollTop = chatBox.scrollHeight;
@@ -794,19 +605,15 @@ function addChatMessage(username, message, tags) {
       }
       
       if (isMusicServiceUrl(url)) {
-        const linkElement = createLinkElement(url, '');
+        const linkElement = createLinkElement(url, ''); // Initially empty metadata
         messageContent.appendChild(linkElement);
         
-        // Add to media queue if enabled
-        if (mediaQueueState.enabled) {
-          mediaQueueState.queue.push({
-            url,
-            username: username,
-            timestamp: new Date()
-          });
-          updateMediaQueueDisplay();
-          processMediaQueue();
-        }
+        // Fetch and update metadata asynchronously
+        getMediaInfo(url).then(metadata => {
+          if (metadata) {
+            linkElement.lastChild.textContent = ` (${metadata})`;
+          }
+        });
       } else {
         const textNode = document.createTextNode(url);
         messageContent.appendChild(textNode);
