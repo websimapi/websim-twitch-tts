@@ -211,6 +211,7 @@ tts.onvoiceschanged = () => {
 
 const gambleState = {
   cooldown: parseInt(localStorage.getItem('gambleCooldown')) || 0,
+  enabled: localStorage.getItem('gambleEnabled') === 'true' || true,
   lastUse: new Map()
 };
 
@@ -218,9 +219,11 @@ const gambleSettingsBtn = document.getElementById('gamble-settings-btn');
 const gambleSettingsModal = document.getElementById('gamble-settings-modal');
 const gambleCooldownInput = document.getElementById('gamble-cooldown');
 const saveGambleSettingsBtn = document.getElementById('save-gamble-settings');
+const gambleEnabledCheckbox = document.getElementById('gamble-enabled');
 
 // Initialize gamble settings
 gambleCooldownInput.value = gambleState.cooldown;
+gambleEnabledCheckbox.checked = gambleState.enabled;
 
 // Gamble settings modal controls
 gambleSettingsBtn.addEventListener('click', () => {
@@ -235,7 +238,9 @@ window.addEventListener('click', (e) => {
 
 saveGambleSettingsBtn.addEventListener('click', () => {
   gambleState.cooldown = parseInt(gambleCooldownInput.value) || 0;
+  gambleState.enabled = gambleEnabledCheckbox.checked;
   localStorage.setItem('gambleCooldown', gambleState.cooldown);
+  localStorage.setItem('gambleEnabled', gambleState.enabled);
   gambleSettingsModal.style.display = 'none';
 });
 
@@ -527,10 +532,21 @@ function addChatMessage(username, message, tags) {
 
   // Handle !gamblevoice command
   if (message.toLowerCase().startsWith('!gamblevoice') || message.toLowerCase().startsWith('!gv')) {
+    if (!gambleState.enabled) {
+      const disabledMessage = document.createElement('div');
+      disabledMessage.className = 'chat-message system-message';
+      disabledMessage.innerHTML = `
+        <span class="timestamp">${new Date().toLocaleTimeString()}</span>
+        <span class="system-text">Gamble Voice command is currently disabled</span>
+      `;
+      chatBox.appendChild(disabledMessage);
+      chatBox.scrollTop = chatBox.scrollHeight;
+      return;
+    }
+
     if (ttsState.users.has(username.toLowerCase())) {
       // Check cooldown
       if (isOnGambleCooldown(username.toLowerCase())) {
-        // Add cooldown notification message
         const cooldownMessage = document.createElement('div');
         cooldownMessage.className = 'chat-message system-message';
         const remainingTime = Math.ceil((gambleState.cooldown * 1000 - (Date.now() - gambleState.lastUse.get(username.toLowerCase()))) / 1000);

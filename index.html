@@ -410,6 +410,18 @@
       border: 1px solid #ddd;
       border-radius: 4px;
     }
+
+    .checkbox-label {
+      display: flex;
+      flex-direction: row !important;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .checkbox-label input[type="checkbox"] {
+      width: auto;
+      margin: 0;
+    }
   </style>
 </head>
 <body>
@@ -437,6 +449,10 @@
         <div class="modal-content">
           <h4>Gamble Voice Settings</h4>
           <div class="settings-form">
+            <label class="checkbox-label">
+              Enable Gamble Voice:
+              <input type="checkbox" id="gamble-enabled">
+            </label>
             <label>
               Cooldown (seconds):
               <input type="number" id="gamble-cooldown" min="0" value="0">
