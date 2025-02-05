@@ -38,6 +38,7 @@
     colonSpan.textContent = ': ';
     messageDiv.appendChild(colonSpan);
     const messageContent = document.createElement('span');
+    
     const urlRegex = /(https?:\/\/[^\s]+)/gi;
     const urlMatches = [...message.matchAll(urlRegex)];
     
@@ -47,8 +48,8 @@
         const url = match[0];
         const beforeText = message.substring(lastIndex, match.index);
         if (beforeText) {
-          const textNode = document.createTextNode(window.chatUtils.censorBadWords(beforeText));
-          messageContent.appendChild(textNode);
+          const fragment = window.chatUtils.buildCensoredElement(beforeText);
+          messageContent.appendChild(fragment);
         }
         if (window.chatUtils.isMusicServiceUrl(url)) {
           const linkElement = window.chatUtils.createLinkElement(url, '');
@@ -66,11 +67,11 @@
       }
       const afterText = message.substring(lastIndex);
       if (afterText) {
-        const textNode = document.createTextNode(window.chatUtils.censorBadWords(afterText));
-        messageContent.appendChild(textNode);
+        const fragment = window.chatUtils.buildCensoredElement(afterText);
+        messageContent.appendChild(fragment);
       }
     } else {
-      messageContent.textContent = window.chatUtils.censorBadWords(message);
+      messageContent.innerHTML = window.chatUtils.censorBadWords(message);
     }
     messageDiv.appendChild(messageContent);
     chatBox.appendChild(messageDiv);

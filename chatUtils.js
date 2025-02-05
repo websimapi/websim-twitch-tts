@@ -1,4 +1,20 @@
 (function() {
+  // Helper function to escape regex special characters
+  function escapeRegExp(string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+  
+  // Helper: Create a DocumentFragment from an HTML string.
+  function buildFragmentFromHTML(htmlString) {
+    const temp = document.createElement('div');
+    temp.innerHTML = htmlString;
+    const frag = document.createDocumentFragment();
+    while (temp.firstChild) {
+      frag.appendChild(temp.firstChild);
+    }
+    return frag;
+  }
+  
   window.chatUtils = {};
 
   let badWordsData = [];
@@ -16,20 +32,29 @@
       console.error('Error loading bad words data:', error);
     });
 
+  // Updated censorBadWords: Replace filtered words with asterisks wrapped in a span.
+  // When hovered, the span shows the original word in a tooltip.
   window.chatUtils.censorBadWords = function(text) {
-    let censoredText = text;
+    let result = text;
     if (window.ttsManager && window.ttsManager.getTTSState().filterEnabled) {
       badWordsData.forEach(function(category) {
         category.dictionary.forEach(function(entry) {
-          const matches = entry.match.split('|');
-          matches.forEach(function(match) {
-            const regex = new RegExp(`\\b${match}\\b`, 'gi');
-            censoredText = censoredText.replace(regex, '*'.repeat(match.length));
+          const words = entry.match.split('|');
+          words.forEach(function(word) {
+            const regex = new RegExp('\\b' + escapeRegExp(word) + '\\b', 'gi');
+            result = result.replace(regex, function(match) {
+              return `<span class="censored" title="${match}">${"*".repeat(match.length)}</span>`;
+            });
           });
         });
       });
     }
-    return censoredText;
+    return result;
+  };
+
+  // New helper to build a DocumentFragment for censored text.
+  window.chatUtils.buildCensoredElement = function(text) {
+    return buildFragmentFromHTML(window.chatUtils.censorBadWords(text));
   };
 
   window.chatUtils.splitMessageIntoChunks = function(text, maxLength = 180) {
