@@ -23,7 +23,7 @@
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
   }
-
+  
   // Import settings from an uploaded file and update UI immediately
   function importSettingsFromFile(event) {
     const file = event.target.files[0];
@@ -74,6 +74,14 @@
         if (window.refreshCustomCommandsUI) {
           window.refreshCustomCommandsUI();
         }
+        // Prepare custom command audio files so that sounds are ready to use immediately after import
+        if (window.prepareCustomCommandAudioFiles) {
+          window.prepareCustomCommandAudioFiles();
+        }
+        // Update TTS Users UI immediately after import
+        if (window.ttsManager && window.ttsManager.loadTTSState) {
+          window.ttsManager.loadTTSState();
+        }
         alert('Settings imported successfully.');
       } catch (err) {
         alert('Failed to import settings: Invalid JSON.');
@@ -82,32 +90,32 @@
     };
     reader.readAsText(file);
   }
-
+  
   function setupExportImportModal() {
     const openBtn = document.getElementById('export-import-settings-btn');
     const modal = document.getElementById('export-import-modal');
     const closeBtn = document.getElementById('close-export-import-btn');
     const exportBtn = document.getElementById('download-export-btn');
     const importFileInput = document.getElementById('import-settings-file');
-
+  
     openBtn.addEventListener('click', () => {
       modal.style.display = 'block';
     });
-
+  
     closeBtn.addEventListener('click', () => {
       modal.style.display = 'none';
     });
-
+  
     // Clicking outside modal-content closes modal
     window.addEventListener('click', (e) => {
       if (e.target === modal) {
         modal.style.display = 'none';
       }
     });
-
+  
     exportBtn.addEventListener('click', exportSettingsDownload);
     importFileInput.addEventListener('change', importSettingsFromFile);
   }
-
+  
   document.addEventListener('DOMContentLoaded', setupExportImportModal);
 })();

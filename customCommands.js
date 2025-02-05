@@ -1,7 +1,3 @@
-// Custom Commands Module
-// This module allows users to configure custom commands that trigger either a TTS message (with a specified voice)
-// or play an uploaded audio file. The commands are stored in localStorage under the key "customCommands".
-
 (function() {
   const customCommandsKey = 'customCommands';
   let commands = [];
@@ -31,7 +27,7 @@
     return commands.find(cmd => cmd.trigger.toLowerCase() === trigger.toLowerCase());
   }
 
-  // Expose getCustomCommand globally so chat.js can use it
+  // Expose getCustomCommand globally so chat modules can use it
   window.getCustomCommand = getCustomCommand;
 
   // Populate the Custom Commands Modal UI with a more compact and user-friendly layout.
@@ -115,7 +111,6 @@
       const ttsVoiceSelect = document.createElement('select');
       ttsVoiceSelect.style.fontSize = '0.9em';
       ttsVoiceSelect.style.padding = '4px';
-      // Populate voices from window.speechSynthesis if available
       let voices = window.speechSynthesis.getVoices();
       if (!voices.length) {
         ttsVoiceSelect.innerHTML = `<option>Loading voices...</option>`;
@@ -137,7 +132,6 @@
 
       const audioLabel = document.createElement('span');
       audioLabel.style.fontSize = '0.9em';
-      // Show current file name if available, otherwise default message
       audioLabel.textContent = cmd.audioFileName ? cmd.audioFileName : (cmd.audioData ? 'File loaded' : 'No file');
       audioContainer.appendChild(audioLabel);
 
@@ -151,7 +145,6 @@
           const reader = new FileReader();
           reader.onload = function(ev) {
             const result = ev.target.result;
-            // If the base64 string is too large, split it into chunks
             if(result.length > CHUNK_SIZE) {
               let chunks = [];
               for(let i = 0; i < result.length; i += CHUNK_SIZE) {
@@ -161,9 +154,11 @@
             } else {
               cmd.audioData = result;
             }
-            // Store the file name for display purposes
             cmd.audioFileName = file.name;
             audioLabel.textContent = file.name;
+            const audio = new Audio(Array.isArray(cmd.audioData) ? cmd.audioData.join('') : cmd.audioData);
+            audio.load();
+            cmd.preloadedAudio = audio;
           };
           reader.readAsDataURL(file);
         }
@@ -221,7 +216,6 @@
     populateCustomCommandsUI();
   }
 
-  // Event listeners for modal controls
   document.getElementById('add-custom-command-btn').addEventListener('click', () => {
     addNewCommand();
   });
@@ -231,25 +225,36 @@
     alert('Custom commands saved.');
   });
 
-  // Initialize modal UI when the modal is opened
-  const customModal = document.getElementById('custom-commands-modal');
-  customModal.addEventListener('click', (e) => {
-    // Prevent propagation if clicking inside modal-content
-    if (e.target.closest('.modal-content')) return;
-    customModal.style.display = 'none';
+  document.getElementById('close-custom-commands').addEventListener('click', () => {
+    document.getElementById('custom-commands-modal').style.display = 'none';
   });
 
-  // When voices are loaded, populate the UI (voices might be loaded asynchronously)
-  window.speechSynthesis.onvoiceschanged = () => {
-    populateCustomCommandsUI();
-  };
+  document.getElementById('custom-commands-btn').addEventListener('click', () => {
+    document.getElementById('custom-commands-modal').style.display = 'block';
+  });
 
-  // Initial load
+  const customCommandsModal = document.getElementById('custom-commands-modal');
+  window.addEventListener('click', (e) => {
+    if (e.target === customCommandsModal) {
+      customCommandsModal.style.display = 'none';
+    }
+  });
+
+  window.refreshCustomCommandsUI = populateCustomCommandsUI;
+  window.loadCustomCommands = loadCommands;
+
+  function prepareCustomCommandAudioFiles() {
+    commands.forEach((cmd) => {
+      if (cmd.type === 'audio' && cmd.audioData) {
+        const audioSrc = Array.isArray(cmd.audioData) ? cmd.audioData.join('') : cmd.audioData;
+        const audio = new Audio(audioSrc);
+        audio.load();
+        cmd.preloadedAudio = audio;
+      }
+    });
+  }
+  window.prepareCustomCommandAudioFiles = prepareCustomCommandAudioFiles;
+
   loadCommands();
   populateCustomCommandsUI();
-
-  // Expose a manual refresh function if needed
-  window.refreshCustomCommandsUI = populateCustomCommandsUI;
-  // Expose loadCommands so that imported settings update custom commands in memory.
-  window.loadCustomCommands = loadCommands;
 })();
