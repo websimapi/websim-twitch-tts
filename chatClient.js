@@ -56,14 +56,34 @@
           if (!window.ttsManager.isUserMuted(username)) {
             window.ttsManager.toggleMuteUser(username);
           }
-          return; // Do not process further
+          return;
         }
         if (unmuteCommands.includes(lowerMessage)) {
           if (window.ttsManager.isUserMuted(username)) {
             window.ttsManager.toggleMuteUser(username);
           }
-          return; // Do not process further
+          return;
         }
+      }
+      
+      // Process voice pick command if enabled
+      if (lowerMessage.startsWith("!pickvoice ")) {
+        if (localStorage.getItem("pickVoiceEnabled") === "true") {
+          const voiceQuery = lowerMessage.substring("!pickvoice ".length).trim();
+          let blacklistedVoices = [];
+          try {
+            blacklistedVoices = JSON.parse(localStorage.getItem("blacklistedVoices") || "[]");
+          } catch (e) {}
+          const voices = window.speechSynthesis.getVoices().filter(v => !blacklistedVoices.includes(v.name));
+          const matchedVoice = voices.find(v => v.name.toLowerCase().includes(voiceQuery));
+          if (matchedVoice) {
+            window.ttsManager.updateUserVoice(username, matchedVoice.name);
+            window.chatUI.addSystemMessage(`${username} switched voice to ${matchedVoice.name}`);
+          } else {
+            window.chatUI.addSystemMessage(`No matching voice found for query: ${voiceQuery}`);
+          }
+        }
+        return;
       }
       
       if (window.getCustomCommand) {

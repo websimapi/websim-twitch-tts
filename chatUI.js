@@ -48,8 +48,9 @@
         const url = match[0];
         const beforeText = message.substring(lastIndex, match.index);
         if (beforeText) {
-          const fragment = window.chatUtils.buildCensoredElement(beforeText);
-          messageContent.appendChild(fragment);
+          const span = document.createElement('span');
+          span.innerHTML = window.chatUtils.censorBadWordsHtml(beforeText);
+          messageContent.appendChild(span);
         }
         if (window.chatUtils.isMusicServiceUrl(url)) {
           const linkElement = window.chatUtils.createLinkElement(url, '');
@@ -60,18 +61,19 @@
             }
           });
         } else {
-          const textNode = document.createTextNode(url);
-          messageContent.appendChild(textNode);
+          const linkText = document.createTextNode(url);
+          messageContent.appendChild(linkText);
         }
         lastIndex = match.index + url.length;
       }
       const afterText = message.substring(lastIndex);
       if (afterText) {
-        const fragment = window.chatUtils.buildCensoredElement(afterText);
-        messageContent.appendChild(fragment);
+        const span = document.createElement('span');
+        span.innerHTML = window.chatUtils.censorBadWordsHtml(afterText);
+        messageContent.appendChild(span);
       }
     } else {
-      messageContent.innerHTML = window.chatUtils.censorBadWords(message);
+      messageContent.innerHTML = window.chatUtils.censorBadWordsHtml(message);
     }
     messageDiv.appendChild(messageContent);
     chatBox.appendChild(messageDiv);

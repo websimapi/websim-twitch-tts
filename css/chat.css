@@ -1,0 +1,37 @@
+/* chat.css - Styles for chat messages and usernames */
+.chat-message {
+  padding: 4px 0;
+  word-wrap: break-word;
+}
+.username {
+  font-weight: bold;
+  color: #6441A4;
+}
+.username.clickable {
+  cursor: pointer;
+  text-decoration: underline;
+}
+.username.clickable:hover {
+  color: #9147ff;
+}
+.timestamp {
+  color: #666;
+  font-size: 0.8em;
+  margin-right: 5px;
+}
+.system-message {
+  background-color: rgba(100, 65, 164, 0.1);
+  padding: 4px 8px;
+  border-radius: 4px;
+  margin: 2px 0;
+}
+.system-text {
+  color: #6441A4;
+  font-style: italic;
+}
+/* Extension for censored words tooltip: when hovering over the censored stars, 
+   display the original word in the title attribute (handled in JS) */
+.censored-word {
+  border-bottom: 1px dashed #aaa;
+  cursor: help;
+}

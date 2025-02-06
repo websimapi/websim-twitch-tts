@@ -1,20 +1,4 @@
 (function() {
-  // Helper function to escape regex special characters
-  function escapeRegExp(string) {
-    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  }
-  
-  // Helper: Create a DocumentFragment from an HTML string.
-  function buildFragmentFromHTML(htmlString) {
-    const temp = document.createElement('div');
-    temp.innerHTML = htmlString;
-    const frag = document.createDocumentFragment();
-    while (temp.firstChild) {
-      frag.appendChild(temp.firstChild);
-    }
-    return frag;
-  }
-  
   window.chatUtils = {};
 
   let badWordsData = [];
@@ -32,29 +16,44 @@
       console.error('Error loading bad words data:', error);
     });
 
-  // Updated censorBadWords: Replace filtered words with asterisks wrapped in a span.
-  // When hovered, the span shows the original word in a tooltip.
+  // This function returns a simple censored text (all bad words replaced with asterisks)
   window.chatUtils.censorBadWords = function(text) {
-    let result = text;
+    let censoredText = text;
     if (window.ttsManager && window.ttsManager.getTTSState().filterEnabled) {
       badWordsData.forEach(function(category) {
         category.dictionary.forEach(function(entry) {
-          const words = entry.match.split('|');
-          words.forEach(function(word) {
-            const regex = new RegExp('\\b' + escapeRegExp(word) + '\\b', 'gi');
-            result = result.replace(regex, function(match) {
-              return `<span class="censored" title="${match}">${"*".repeat(match.length)}</span>`;
-            });
+          const matches = entry.match.split('|');
+          matches.forEach(function(match) {
+            const regex = new RegExp(`\\b${match}\\b`, 'gi');
+            censoredText = censoredText.replace(regex, '*'.repeat(match.length));
           });
         });
       });
     }
-    return result;
+    return censoredText;
   };
 
-  // New helper to build a DocumentFragment for censored text.
-  window.chatUtils.buildCensoredElement = function(text) {
-    return buildFragmentFromHTML(window.chatUtils.censorBadWords(text));
+  // New function to return HTML with censored words wrapped in a tooltip.
+  window.chatUtils.censorBadWordsHtml = function(text) {
+    if (!(window.ttsManager && window.ttsManager.getTTSState().filterEnabled)) {
+      // If filtering is not enabled, return text as is (escaped)
+      // Here we assume text is safe or already escaped.
+      return text;
+    }
+    let result = text;
+    badWordsData.forEach(function(category) {
+      category.dictionary.forEach(function(entry) {
+        const words = entry.match.split('|');
+        words.forEach(function(word) {
+          // Use capturing group so we can get the actual match word even with different case.
+          const regex = new RegExp(`\\b(${word})\\b`, 'gi');
+          result = result.replace(regex, function(match) {
+            return `<span class="censored-word" title="${match}">${'*'.repeat(match.length)}</span>`;
+          });
+        });
+      });
+    });
+    return result;
   };
 
   window.chatUtils.splitMessageIntoChunks = function(text, maxLength = 180) {

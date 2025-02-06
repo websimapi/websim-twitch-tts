@@ -1,0 +1,184 @@
+/* tts.css - Styles for TTS controls and user interface */
+.tts-controls {
+  margin: 20px 0;
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  overflow: hidden;
+}
+.tts-controls h3 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  color: #333;
+}
+.tts-button-group {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.control-btn {
+  padding: 8px 16px;
+  font-size: 14px;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  white-space: nowrap;
+}
+.control-btn:hover {
+  opacity: 0.9;
+}
+.add-btn {
+  background: #28a745;
+}
+.clear-btn {
+  background: #dc3545;
+}
+.toggle-btn {
+  background: #007bff;
+}
+.toggle-btn.off {
+  background: #6c757d;
+}
+#tts-add-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 15px 0;
+  padding: 15px;
+  background: white;
+  border-radius: 6px;
+  border: 1px solid #e0e0e0;
+  align-items: center;
+}
+#tts-username {
+  flex: 1 1 100%;
+  padding: 12px;
+  border: 2px solid #6441A4;
+  border-radius: 4px;
+  font-size: 18px;
+  margin-bottom: 10px;
+}
+#tts-voice-select {
+  flex: 1 1 100%;
+  padding: 12px;
+  border: 2px solid #6441A4;
+  border-radius: 4px;
+  font-size: 18px;
+  margin-bottom: 10px;
+}
+.add-user-btn {
+  flex: 0 0 auto;
+  padding: 12px 24px;
+  font-size: 18px;
+  background: #28a745;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  min-width: 150px;
+  align-self: flex-end;
+}
+.tts-user-list {
+  margin-top: 15px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 15px;
+}
+.tts-user {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+  background: #fff;
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid #e0e0e0;
+  transition: all 0.2s ease;
+  min-width: 0;
+}
+.tts-user span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+  color: #333;
+}
+.tts-user select {
+  width: 100%;
+  min-width: 0;
+  padding: 4px 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+.tts-user button {
+  padding: 4px 8px;
+  background: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+.tts-user button:hover {
+  background: #c82333;
+}
+.current-display, .queue-display {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  padding: 10px;
+}
+.current-section h5, .queue-container h5 {
+  margin: 0 0 8px 0;
+  color: #444;
+  font-size: 0.9em;
+}
+.current-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  background: #f8f9fa;
+  border-radius: 4px;
+}
+.current-icon {
+  color: #6441A4;
+  font-size: 1.2em;
+  animation: pulse 1s infinite;
+}
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+.empty-current, .empty-queue {
+  color: #666;
+  font-style: italic;
+  text-align: center;
+  padding: 10px;
+}
+.queue-item {
+  padding: 8px;
+  border-bottom: 1px solid #f0f0f0;
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  gap: 8px;
+  align-items: start;
+}
+.queue-item:last-child {
+  border-bottom: none;
+}
+.queue-number {
+  color: #6441A4;
+  font-weight: bold;
+  min-width: 24px;
+}
+.queue-text {
+  color: #333;
+  word-break: break-word;
+}
