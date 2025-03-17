@@ -1,6 +1,6 @@
 (function() {
   // Create logger for this module
-  const logger = window.debugLogger.createLogger('GambleManager');
+  const logger = window.debugLogger ? window.debugLogger.createLogger('GambleManager') : console;
   
   const defaultGambleTriggers = ["!gamblevoice", "!gv", "bonesd3TC"];
   const gambleState = {
