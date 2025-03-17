@@ -2,15 +2,16 @@
   const voiceSettingsBtn = document.getElementById('voice-settings-btn');
   const voiceSettingsModal = document.getElementById('voice-settings-modal');
   const voicePickToggle = document.getElementById('voice-pick-toggle');
-  const blacklistedVoicesContainer = document.getElementById('blacklisted-voices');
+  const blacklistDropdown = document.getElementById('blacklisted-voices-dropdown'); 
   const saveVoiceSettingsBtn = document.getElementById('save-voice-settings');
   const closeVoiceSettingsBtn = document.getElementById('close-voice-settings');
 
   function loadVoiceSettings() {
     const pickVoiceEnabled = localStorage.getItem('pickVoiceEnabled');
     voicePickToggle.checked = (pickVoiceEnabled === 'true');
+
     const voices = window.speechSynthesis.getVoices();
-    blacklistedVoicesContainer.innerHTML = '';
+    blacklistDropdown.innerHTML = '';
     const blacklistedStr = localStorage.getItem('blacklistedVoices');
     let storedBlacklist = [];
     if (blacklistedStr) {
@@ -21,34 +22,21 @@
       }
     }
     voices.forEach(voice => {
-      const wrapper = document.createElement('div');
-      wrapper.style.display = 'flex';
-      wrapper.style.alignItems = 'center';
-      wrapper.style.gap = '8px';
-      const checkbox = document.createElement('input');
-      checkbox.type = 'checkbox';
-      checkbox.value = voice.name;
-      checkbox.id = 'voice-checkbox-' + voice.name.replace(/\s/g, '-');
+      const option = document.createElement('option');
+      option.value = voice.name;
+      option.textContent = `${voice.name} (${voice.lang})`;
       if (storedBlacklist.includes(voice.name)) {
-        checkbox.checked = true;
+        option.selected = true;
       }
-      const label = document.createElement('label');
-      label.setAttribute('for', checkbox.id);
-      label.textContent = `${voice.name} (${voice.lang})`;
-      wrapper.appendChild(checkbox);
-      wrapper.appendChild(label);
-      blacklistedVoicesContainer.appendChild(wrapper);
+      blacklistDropdown.appendChild(option);
     });
   }
 
   function saveVoiceSettings() {
     const pickEnabled = voicePickToggle.checked;
     localStorage.setItem('pickVoiceEnabled', pickEnabled);
-    const checkboxes = blacklistedVoicesContainer.querySelectorAll('input[type="checkbox"]');
-    const selectedVoices = Array.from(checkboxes)
-      .filter(checkbox => checkbox.checked)
-      .map(checkbox => checkbox.value);
-    localStorage.setItem('blacklistedVoices', JSON.stringify(selectedVoices));
+    const selectedOptions = Array.from(blacklistDropdown.selectedOptions).map(opt => opt.value);
+    localStorage.setItem('blacklistedVoices', JSON.stringify(selectedOptions));
 
     applyVoiceBlacklist();
     updateVoiceSettingsButton();
@@ -89,7 +77,7 @@
     let blacklist = [];
     if (blacklistedStr) {
       try {
-         blacklist = JSON.parse(blacklistedStr);
+        blacklist = JSON.parse(blacklistedStr);
       } catch(e){}
     }
     return allVoices.filter(v => !blacklist.includes(v.name));
@@ -100,48 +88,39 @@
     let blacklist = [];
     if (blacklistedStr) {
       try {
-         blacklist = JSON.parse(blacklistedStr);
+        blacklist = JSON.parse(blacklistedStr);
       } catch(e){}
     }
-    
-    // Check if ttsManager exists and is initialized before using it
-    if (window.ttsManager && window.ttsManager.getTTSState && window.ttsManager.updateUserVoice) {
-      const voiceState = window.ttsManager.getTTSState();
-      voiceState.users.forEach((voiceName, username) => {
-        if (blacklist.includes(voiceName)) {
-           const allowed = getAllowedVoices();
-           if (allowed.length > 0) {
-              const newVoice = allowed[Math.floor(Math.random() * allowed.length)].name;
-              window.ttsManager.updateUserVoice(username, newVoice);
-              if (window.chatUI && window.chatUI.addSystemMessage) {
-                window.chatUI.addSystemMessage(`${username} had a blacklisted voice and was switched to ${newVoice}`);
-              }
-           }
-        }
-      });
-    }
-  }
-
-  // Check if ttsManager exists before trying to override its method
-  if (window.ttsManager && window.ttsManager.updateUserVoice) {
-    const originalUpdateUserVoice = window.ttsManager.updateUserVoice;
-    window.ttsManager.updateUserVoice = function(username, voiceName) {
-      const blacklistedStr = localStorage.getItem('blacklistedVoices');
-      let blacklist = [];
-      if (blacklistedStr) {
-        try {
-           blacklist = JSON.parse(blacklistedStr);
-        } catch(e){}
-      }
+    const voiceState = window.ttsManager.getTTSState();
+    voiceState.users.forEach((voiceName, username) => {
       if (blacklist.includes(voiceName)) {
         const allowed = getAllowedVoices();
         if (allowed.length > 0) {
-           voiceName = allowed[Math.floor(Math.random() * allowed.length)].name;
+          const newVoice = allowed[Math.floor(Math.random() * allowed.length)].name;
+          window.ttsManager.updateUserVoice(username, newVoice);
+          window.chatUI.addSystemMessage(`${username} had a blacklisted voice and was switched to ${newVoice}`);
         }
       }
-      originalUpdateUserVoice(username, voiceName);
-    };
+    });
   }
+
+  const originalUpdateUserVoice = window.ttsManager.updateUserVoice;
+  window.ttsManager.updateUserVoice = function(username, voiceName) {
+    const blacklistedStr = localStorage.getItem('blacklistedVoices');
+    let blacklist = [];
+    if (blacklistedStr) {
+      try {
+        blacklist = JSON.parse(blacklistedStr);
+      } catch(e){}
+    }
+    if (blacklist.includes(voiceName)) {
+      const allowed = getAllowedVoices();
+      if (allowed.length > 0) {
+        voiceName = allowed[Math.floor(Math.random() * allowed.length)].name;
+      }
+    }
+    originalUpdateUserVoice(username, voiceName);
+  };
 
   updateVoiceSettingsButton();
 })();

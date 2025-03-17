@@ -5,7 +5,6 @@
   <link rel="stylesheet" href="css/modals.css">
   <link rel="stylesheet" href="css/tts.css">
   <link rel="stylesheet" href="css/chat.css">
-  <link rel="stylesheet" href="css/debug.css">
 </head>
 <body>
   <div class="container">
@@ -131,7 +130,7 @@
             </label>
             <label>
               Blacklisted Voices:
-              <div id="blacklisted-voices" class="blacklist-container"></div>
+              <select id="blacklisted-voices-dropdown" multiple style="width:100%; height:150px;"></select>
             </label>
             <div class="button-group">
               <button id="save-voice-settings" class="control-btn add-btn">Save Settings</button>
@@ -168,38 +167,6 @@
     </div>
     <div id="chat-box"></div>
   </div>
-  <!-- Debug Panel -->
-  <div id="debug-panel">
-    <div class="debug-panel-content">
-      <div class="debug-header">
-        <h2>Debug Logs</h2>
-        <div class="debug-controls">
-          <button id="debug-export-btn">Export Logs</button>
-          <button id="debug-clear-btn">Clear Logs</button>
-          <button id="debug-close-btn">Close</button>
-        </div>
-      </div>
-      <div class="debug-filters">
-        <select id="debug-level-filter">
-          <option value="">All Levels</option>
-          <option value="INFO">INFO</option>
-          <option value="WARN">WARN</option>
-          <option value="ERROR">ERROR</option>
-          <option value="DEBUG">DEBUG</option>
-        </select>
-        <select id="debug-module-filter">
-          <option value="">All Modules</option>
-        </select>
-        <input type="text" id="debug-search-filter" placeholder="Search logs...">
-      </div>
-      <div class="debug-log-container">
-        <div id="debug-log-entries"></div>
-      </div>
-      <div class="debug-status-bar">
-        <span id="debug-log-count">0 logs</span>
-      </div>
-    </div>
-  </div>
   <script src="tmi.js"></script>
   <script src="chatUtils.js"></script>
   <script src="ttsManager.js"></script>
@@ -211,7 +178,6 @@
   <script src="scheduledEvents.js"></script>
   <script src="muteSettings.js"></script>
   <script src="voiceSettings.js"></script>
-  <script src="debugLogger.js"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516" integrity="sha512-8DS7rgIrAmghBFwoOTujcf6D9rXvH8xm8JQ1Ja01h9QX8EzXldiszufYa4IFfKdLUKTTrnSFXLDkUEOTrZQ8Qg==" data-cf-beacon='{"version":"2024.11.0","token":"4c6229722a6346bc8eb5cb0e5eae5d41","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 </body>
 </html>

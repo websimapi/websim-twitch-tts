@@ -1,22 +1,11 @@
 (function() {
-  // Create logger for this module, fallback to console if debugLogger doesn't exist
-  const logger = window.debugLogger ? window.debugLogger.createLogger('GambleManager') : console;
-  
   const defaultGambleTriggers = ["!gamblevoice", "!gv", "bonesd3TC"];
   const gambleState = {
     cooldown: parseInt(localStorage.getItem('gambleCooldown')) || 0,
     enabled: localStorage.getItem('gambleEnabled') === 'false' ? false : true,
     lastUse: new Map()
   };
-  
-  let gambleTriggers;
-  try {
-    gambleTriggers = JSON.parse(localStorage.getItem('gambleTriggers') || JSON.stringify(defaultGambleTriggers));
-    logger.info('Loaded gamble triggers', gambleTriggers);
-  } catch (error) {
-    logger.error('Failed to parse gamble triggers from localStorage', error.toString());
-    gambleTriggers = [...defaultGambleTriggers];
-  }
+  let gambleTriggers = JSON.parse(localStorage.getItem('gambleTriggers') || JSON.stringify(defaultGambleTriggers));
 
   const gambleSettingsBtn = document.getElementById('gamble-settings-btn');
   const gambleSettingsModal = document.getElementById('gamble-settings-modal');
@@ -138,55 +127,34 @@
   function handleGambleCommand(username, message) {
     username = username.toLowerCase();
     if (!gambleState.enabled) {
-      logger.info('Gamble command rejected - feature disabled');
-      if (window.chatUI && window.chatUI.addSystemMessage) {
-        window.chatUI.addSystemMessage("Gamble Voice command is currently disabled");
-      }
-      if (window.ttsManager && window.ttsManager.queueTTSMessage) {
-        window.ttsManager.queueTTSMessage("Gamble Voice command is currently disabled", "System");
-      }
+      window.chatUI.addSystemMessage("Gamble Voice command is currently disabled");
+      window.ttsManager.queueTTSMessage("Gamble Voice command is currently disabled", "System");
       return true;
     }
-    
     if (isOnGambleCooldown(username)) {
       const lastUse = gambleState.lastUse.get(username);
       const remainingTime = Math.ceil((gambleState.cooldown * 1000 - (Date.now() - lastUse)) / 1000);
-      logger.info(`Gamble command rejected - user ${username} on cooldown for ${remainingTime}s`);
-      if (window.chatUI && window.chatUI.addSystemMessage) {
-        window.chatUI.addSystemMessage(`${username} must wait ${remainingTime} seconds before using gamble voice again`);
-      }
+      window.chatUI.addSystemMessage(`${username} must wait ${remainingTime} seconds before using gamble voice again`);
       return true;
     }
-    
     const voices = window.speechSynthesis.getVoices();
-    const ttsState = window.ttsManager && window.ttsManager.getTTSState ? window.ttsManager.getTTSState() : { users: new Map() };
-    const currentVoice = ttsState.users.get(username);
+    const currentVoice = window.ttsManager.getTTSState().users.get(username);
     let newVoice;
     if (voices.length) {
       do {
         newVoice = voices[Math.floor(Math.random() * voices.length)].name;
       } while (newVoice === currentVoice && voices.length > 1);
     }
-    
-    if (window.ttsManager && window.ttsManager.updateUserVoice) {
-      window.ttsManager.updateUserVoice(username, newVoice);
-    }
+    window.ttsManager.updateUserVoice(username, newVoice);
     gambleState.lastUse.set(username, Date.now());
-    if (window.chatUI && window.chatUI.addSystemMessage) {
-      window.chatUI.addSystemMessage(`${username} rolled and got a new voice: ${newVoice}`);
-    }
-    if (window.ttsManager && window.ttsManager.queueTTSMessage) {
-      window.ttsManager.queueTTSMessage(`${username} rolled for a new voice`, 'System');
-    }
+    window.chatUI.addSystemMessage(`${username} rolled and got a new voice: ${newVoice}`);
+    window.ttsManager.queueTTSMessage(`${username} rolled for a new voice`, 'System');
 
     const triggerMatched = gambleTriggers.find(trigger => message.toLowerCase().startsWith(trigger.toLowerCase()));
     const additionalText = message.slice(triggerMatched.length).trim();
     if (additionalText) {
-      if (window.ttsManager && window.ttsManager.queueTTSMessage) {
-        window.ttsManager.queueTTSMessage(additionalText, username);
-      }
+      window.ttsManager.queueTTSMessage(additionalText, username);
     }
-    logger.info(`User ${username} rolled for a new voice and got: ${newVoice}`);
     return true;
   }
 

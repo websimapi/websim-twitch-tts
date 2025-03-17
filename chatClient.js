@@ -1,7 +1,4 @@
 (function() {
-  // Create logger for this module
-  const logger = window.debugLogger ? window.debugLogger.createLogger('ChatClient') : console;
-  
   const channelInput = document.getElementById('channel-input');
   const connectButton = document.getElementById('connect-btn');
   const statusDiv = document.getElementById('status');
@@ -24,12 +21,9 @@
   function connectToChat() {
     const channel = channelInput.value.toLowerCase().trim();
     if (!channel) {
-      logger.error('No channel name provided');
       alert('Please enter a channel name');
       return;
     }
-    
-    logger.info(`Connecting to channel: ${channel}`);
     localStorage.setItem('lastConnectedChannel', channel);
     client = new window.tmi.Client({
       connection: {
@@ -38,36 +32,26 @@
       },
       channels: [channel]
     });
-    
-    client.connect().catch(error => {
-      logger.error('Connection error', error.toString());
-      console.error(error);
-    });
-    
+    client.connect().catch(console.error);
     client.on('connected', function() {
-      logger.info(`Connected to ${channel}'s chat`);
       statusDiv.className = 'status connected';
       statusDiv.textContent = `Connected to ${channel}'s chat`;
       connectButton.textContent = 'Disconnect';
     });
-    
     client.on('disconnected', function() {
-      logger.info('Disconnected from chat');
       statusDiv.className = 'status disconnected';
       statusDiv.textContent = 'Disconnected from chat';
       connectButton.textContent = 'Connect';
     });
-    
     client.on('message', function(channel, tags, message, self) {
       const username = tags['display-name'] || 'Anonymous';
-      logger.debug(`Message from ${username}`, message);
+      const lowerMessage = message.trim().toLowerCase();
       
       // Check for self mute/unmute commands if allowed
       const allowSelfMute = localStorage.getItem('allowSelfMute') === 'false' ? false : true;
-      if (allowSelfMute && window.ttsManager && window.ttsManager.isUserMuted) {
+      if (allowSelfMute) {
         const muteCommands = (localStorage.getItem('selfMuteCommands') || '!tts-off, !mute, bonesd3to').toLowerCase().split(',').map(s => s.trim());
         const unmuteCommands = (localStorage.getItem('selfUnmuteCommands') || '!tts, !tts-on, !unmute, bonesd3ts').toLowerCase().split(',').map(s => s.trim());
-        const lowerMessage = message.trim().toLowerCase();
         if (muteCommands.includes(lowerMessage)) {
           if (!window.ttsManager.isUserMuted(username)) {
             window.ttsManager.toggleMuteUser(username);
@@ -83,7 +67,6 @@
       }
       
       // Process voice pick command if enabled
-      const lowerMessage = message.trim().toLowerCase();
       if (lowerMessage.startsWith("!pickvoice ")) {
         if (localStorage.getItem("pickVoiceEnabled") === "true") {
           const voiceQuery = lowerMessage.substring("!pickvoice ".length).trim();
@@ -115,22 +98,17 @@
           return;
         }
       }
-      if (window.gambleManager && window.gambleManager.isGambleTrigger) {
+      if (window.gambleManager && window.gambleManager.isGambleTrigger(lowerMessage)) {
         const handled = window.gambleManager.handleGambleCommand(username, message);
         if (handled) return;
       }
-      if (window.chatUI) {
-        window.chatUI.addChatMessage(username, message, tags);
-      }
-      if (window.ttsManager && window.ttsManager.queueTTSMessage) {
-        window.ttsManager.queueTTSMessage(message, username);
-      }
+      window.chatUI.addChatMessage(username, message, tags);
+      window.ttsManager.queueTTSMessage(message, username);
     });
   }
 
   function disconnectFromChat() {
     if (client) {
-      logger.info('Disconnecting from chat');
       client.disconnect();
       client = null;
     }

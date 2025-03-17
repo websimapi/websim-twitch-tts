@@ -1,28 +1,10 @@
 (function() {
-  // Ensure debugLogger exists before attempting to create a logger
-  const logger = window.debugLogger ? window.debugLogger.createLogger('TTSManager') : console;
-  
   const tts = window.speechSynthesis;
   const ttsToggleButton = document.getElementById('tts-toggle');
   const ttsClearQueueButton = document.getElementById('tts-clear-queue');
   const ttsAddForm = document.getElementById('tts-add-form');
   const ttsFilterToggleButton = document.getElementById('tts-filter-toggle');
   const autoAddUserToggle = document.getElementById('auto-add-user-toggle');
-
-  // Initialize with default voices until they're properly loaded
-  let availableVoices = [];
-  
-  // Load voices and retry if needed
-  function loadVoices() {
-    availableVoices = tts.getVoices();
-    if (availableVoices.length === 0) {
-      // If voices aren't available yet, try again in 100ms
-      setTimeout(loadVoices, 100);
-    } else {
-      populateVoiceList();
-      updateTTSUsersList();
-    }
-  }
 
   const ttsState = {
     enabled: localStorage.getItem('ttsEnabled') === 'false' ? false : true,
@@ -39,21 +21,20 @@
   }
 
   function populateVoiceList() {
-    const ttsVoiceSelect = document.getElementById('tts-voice-select');
-    if (!ttsVoiceSelect) return;
-    
-    if (availableVoices.length === 0) {
-      ttsVoiceSelect.innerHTML = '<option>Loading voices...</option>';
+    const voices = tts.getVoices();
+    if (!voices.length) {
+      setTimeout(populateVoiceList, 100);
       return;
     }
-    
-    ttsVoiceSelect.innerHTML = availableVoices.map(voice =>
-      `<option value="${voice.name}">${voice.name} (${voice.lang})</option>`
-    ).join('');
+    const ttsVoiceSelect = document.getElementById('tts-voice-select');
+    if (ttsVoiceSelect) {
+      ttsVoiceSelect.innerHTML = voices.map(voice =>
+        `<option value="${voice.name}">${voice.name} (${voice.lang})</option>`
+      ).join('');
+    }
   }
 
   function loadTTSState() {
-    logger.info('Loading TTS state from localStorage');
     ttsState.users = new Map(JSON.parse(localStorage.getItem('ttsUsers') || '[]'));
     if(ttsToggleButton) {
       ttsToggleButton.textContent = ttsState.enabled ? 'TTS Enabled' : 'TTS Disabled';
@@ -79,7 +60,6 @@
   }
 
   function resetTTS() {
-    logger.warn('Resetting TTS state due to error or manual reset');
     if (tts.speaking) {
       tts.cancel();
     }
@@ -158,22 +138,13 @@
 
   function queueTTSMessage(text, username) {
     username = username.toLowerCase();
-    if (window.ttsManager.isUserMuted(username)) {
-      logger.debug(`Skip TTS for muted user: ${username}`);
-      return;
-    }
-    
+    if (window.ttsManager.isUserMuted(username)) return;
     if (text[0] === '!' && !(window.gambleManager && window.gambleManager.isGambleTrigger(text.toLowerCase()))) {
-      logger.debug(`Skip TTS for command: ${text}`);
       return;
     }
-    
     if (!ttsState.enabled || !ttsState.users.has(username)) {
-      logger.debug(`Skip TTS - enabled: ${ttsState.enabled}, user registered: ${ttsState.users.has(username)}`);
       return;
     }
-    
-    logger.info(`Queueing TTS message for ${username}`, text);
     const chunks = window.chatUtils.splitMessageIntoChunks(text);
     const voices = tts.getVoices();
     const voiceName = ttsState.users.get(username);
@@ -268,20 +239,19 @@
 
   function updateTTSUsersList() {
     const ttsUsersList = document.getElementById('tts-users');
+    const voices = tts.getVoices();
     if (!ttsUsersList) return;
-    
-    if (availableVoices.length === 0) {
+    if (!voices.length) {
       setTimeout(updateTTSUsersList, 100);
       return;
     }
-    
     ttsUsersList.innerHTML = '';
     ttsState.users.forEach(function(voiceName, username) {
       const div = document.createElement('div');
       div.className = 'tts-user';
       const voiceSelectHTML = `
         <select onchange="window.ttsManager.updateUserVoice('${username}', this.value)">
-          ${availableVoices.map(function(voice) {
+          ${voices.map(function(voice) {
             return `<option value="${voice.name}" ${voice.name === voiceName ? 'selected' : ''}>
               ${voice.name} (${voice.lang})
             </option>`;
@@ -324,14 +294,13 @@
     }
   }, 1000);
 
-  // Call loadVoices immediately and also set up the onvoiceschanged handler
-  loadVoices();
-  
-  if (tts.onvoiceschanged !== undefined) {
-    tts.onvoiceschanged = function() {
-      loadVoices();
-    };
-  }
+  tts.onvoiceschanged = function() {
+    populateVoiceList();
+    loadTTSState();
+  };
+
+  populateVoiceList();
+  loadTTSState();
 
   if (ttsToggleButton) {
     ttsToggleButton.addEventListener('click', function() {
