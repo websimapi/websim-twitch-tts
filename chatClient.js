@@ -1,6 +1,6 @@
 (function() {
   // Create logger for this module
-  const logger = window.debugLogger.createLogger('ChatClient');
+  const logger = window.debugLogger ? window.debugLogger.createLogger('ChatClient') : console;
   
   const channelInput = document.getElementById('channel-input');
   const connectButton = document.getElementById('connect-btn');
