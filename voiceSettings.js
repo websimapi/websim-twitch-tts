@@ -103,36 +103,43 @@
          blacklist = JSON.parse(blacklistedStr);
       } catch(e){}
     }
-    const voiceState = window.ttsManager.getTTSState();
-    voiceState.users.forEach((voiceName, username) => {
-      if (blacklist.includes(voiceName)) {
-         const allowed = getAllowedVoices();
-         if (allowed.length > 0) {
-            const newVoice = allowed[Math.floor(Math.random() * allowed.length)].name;
-            window.ttsManager.updateUserVoice(username, newVoice);
-            window.chatUI.addSystemMessage(`${username} had a blacklisted voice and was switched to ${newVoice}`);
-         }
-      }
-    });
+    
+    // Check if ttsManager exists and is initialized before using it
+    if (window.ttsManager && window.ttsManager.getTTSState) {
+      const voiceState = window.ttsManager.getTTSState();
+      voiceState.users.forEach((voiceName, username) => {
+        if (blacklist.includes(voiceName)) {
+           const allowed = getAllowedVoices();
+           if (allowed.length > 0) {
+              const newVoice = allowed[Math.floor(Math.random() * allowed.length)].name;
+              window.ttsManager.updateUserVoice(username, newVoice);
+              window.chatUI.addSystemMessage(`${username} had a blacklisted voice and was switched to ${newVoice}`);
+           }
+        }
+      });
+    }
   }
 
-  const originalUpdateUserVoice = window.ttsManager.updateUserVoice;
-  window.ttsManager.updateUserVoice = function(username, voiceName) {
-    const blacklistedStr = localStorage.getItem('blacklistedVoices');
-    let blacklist = [];
-    if (blacklistedStr) {
-      try {
-         blacklist = JSON.parse(blacklistedStr);
-      } catch(e){}
-    }
-    if (blacklist.includes(voiceName)) {
-      const allowed = getAllowedVoices();
-      if (allowed.length > 0) {
-         voiceName = allowed[Math.floor(Math.random() * allowed.length)].name;
+  // Check if ttsManager exists before trying to override its method
+  if (window.ttsManager && window.ttsManager.updateUserVoice) {
+    const originalUpdateUserVoice = window.ttsManager.updateUserVoice;
+    window.ttsManager.updateUserVoice = function(username, voiceName) {
+      const blacklistedStr = localStorage.getItem('blacklistedVoices');
+      let blacklist = [];
+      if (blacklistedStr) {
+        try {
+           blacklist = JSON.parse(blacklistedStr);
+        } catch(e){}
       }
-    }
-    originalUpdateUserVoice(username, voiceName);
-  };
+      if (blacklist.includes(voiceName)) {
+        const allowed = getAllowedVoices();
+        if (allowed.length > 0) {
+           voiceName = allowed[Math.floor(Math.random() * allowed.length)].name;
+        }
+      }
+      originalUpdateUserVoice(username, voiceName);
+    };
+  }
 
   updateVoiceSettingsButton();
 })();
