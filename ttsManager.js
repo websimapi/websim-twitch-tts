@@ -9,6 +9,21 @@
   const ttsFilterToggleButton = document.getElementById('tts-filter-toggle');
   const autoAddUserToggle = document.getElementById('auto-add-user-toggle');
 
+  // Initialize with default voices until they're properly loaded
+  let availableVoices = [];
+  
+  // Load voices and retry if needed
+  function loadVoices() {
+    availableVoices = tts.getVoices();
+    if (availableVoices.length === 0) {
+      // If voices aren't available yet, try again in 100ms
+      setTimeout(loadVoices, 100);
+    } else {
+      populateVoiceList();
+      updateTTSUsersList();
+    }
+  }
+
   const ttsState = {
     enabled: localStorage.getItem('ttsEnabled') === 'false' ? false : true,
     filterEnabled: localStorage.getItem('ttsFilterEnabled') === 'false' ? false : true,
@@ -24,17 +39,17 @@
   }
 
   function populateVoiceList() {
-    const voices = tts.getVoices();
-    if (!voices.length) {
-      setTimeout(populateVoiceList, 100);
+    const ttsVoiceSelect = document.getElementById('tts-voice-select');
+    if (!ttsVoiceSelect) return;
+    
+    if (availableVoices.length === 0) {
+      ttsVoiceSelect.innerHTML = '<option>Loading voices...</option>';
       return;
     }
-    const ttsVoiceSelect = document.getElementById('tts-voice-select');
-    if (ttsVoiceSelect) {
-      ttsVoiceSelect.innerHTML = voices.map(voice =>
-        `<option value="${voice.name}">${voice.name} (${voice.lang})</option>`
-      ).join('');
-    }
+    
+    ttsVoiceSelect.innerHTML = availableVoices.map(voice =>
+      `<option value="${voice.name}">${voice.name} (${voice.lang})</option>`
+    ).join('');
   }
 
   function loadTTSState() {
@@ -253,19 +268,20 @@
 
   function updateTTSUsersList() {
     const ttsUsersList = document.getElementById('tts-users');
-    const voices = tts.getVoices();
     if (!ttsUsersList) return;
-    if (!voices.length) {
+    
+    if (availableVoices.length === 0) {
       setTimeout(updateTTSUsersList, 100);
       return;
     }
+    
     ttsUsersList.innerHTML = '';
     ttsState.users.forEach(function(voiceName, username) {
       const div = document.createElement('div');
       div.className = 'tts-user';
       const voiceSelectHTML = `
         <select onchange="window.ttsManager.updateUserVoice('${username}', this.value)">
-          ${voices.map(function(voice) {
+          ${availableVoices.map(function(voice) {
             return `<option value="${voice.name}" ${voice.name === voiceName ? 'selected' : ''}>
               ${voice.name} (${voice.lang})
             </option>`;
@@ -308,13 +324,14 @@
     }
   }, 1000);
 
-  tts.onvoiceschanged = function() {
-    populateVoiceList();
-    loadTTSState();
-  };
-
-  populateVoiceList();
-  loadTTSState();
+  // Call loadVoices immediately and also set up the onvoiceschanged handler
+  loadVoices();
+  
+  if (tts.onvoiceschanged !== undefined) {
+    tts.onvoiceschanged = function() {
+      loadVoices();
+    };
+  }
 
   if (ttsToggleButton) {
     ttsToggleButton.addEventListener('click', function() {

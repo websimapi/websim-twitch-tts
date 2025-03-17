@@ -12,10 +12,12 @@
     usernameSpan.className = 'username';
     usernameSpan.textContent = username;
     
-    const ttsUsers = window.ttsManager.getTTSState().users;
+    const ttsUsers = window.ttsManager && window.ttsManager.getTTSState ? 
+      window.ttsManager.getTTSState().users : new Map();
+      
     if (!ttsUsers.has(username.toLowerCase())) {
       const autoAddEnabled = localStorage.getItem('autoAddUserEnabled') === 'false' ? false : true;
-      if (autoAddEnabled) {
+      if (autoAddEnabled && window.ttsManager && window.ttsManager.addTTSUser) {
         const voices = window.speechSynthesis.getVoices();
         if (voices.length) {
           const randomVoice = voices[Math.floor(Math.random() * voices.length)].name;

@@ -64,7 +64,7 @@
       
       // Check for self mute/unmute commands if allowed
       const allowSelfMute = localStorage.getItem('allowSelfMute') === 'false' ? false : true;
-      if (allowSelfMute) {
+      if (allowSelfMute && window.ttsManager && window.ttsManager.isUserMuted) {
         const muteCommands = (localStorage.getItem('selfMuteCommands') || '!tts-off, !mute, bonesd3to').toLowerCase().split(',').map(s => s.trim());
         const unmuteCommands = (localStorage.getItem('selfUnmuteCommands') || '!tts, !tts-on, !unmute, bonesd3ts').toLowerCase().split(',').map(s => s.trim());
         const lowerMessage = message.trim().toLowerCase();
@@ -115,12 +115,16 @@
           return;
         }
       }
-      if (window.gambleManager && window.gambleManager.isGambleTrigger(lowerMessage)) {
+      if (window.gambleManager && window.gambleManager.isGambleTrigger) {
         const handled = window.gambleManager.handleGambleCommand(username, message);
         if (handled) return;
       }
-      window.chatUI.addChatMessage(username, message, tags);
-      window.ttsManager.queueTTSMessage(message, username);
+      if (window.chatUI) {
+        window.chatUI.addChatMessage(username, message, tags);
+      }
+      if (window.ttsManager && window.ttsManager.queueTTSMessage) {
+        window.ttsManager.queueTTSMessage(message, username);
+      }
     });
   }
 

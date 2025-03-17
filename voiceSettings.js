@@ -105,7 +105,7 @@
     }
     
     // Check if ttsManager exists and is initialized before using it
-    if (window.ttsManager && window.ttsManager.getTTSState) {
+    if (window.ttsManager && window.ttsManager.getTTSState && window.ttsManager.updateUserVoice) {
       const voiceState = window.ttsManager.getTTSState();
       voiceState.users.forEach((voiceName, username) => {
         if (blacklist.includes(voiceName)) {
@@ -113,7 +113,9 @@
            if (allowed.length > 0) {
               const newVoice = allowed[Math.floor(Math.random() * allowed.length)].name;
               window.ttsManager.updateUserVoice(username, newVoice);
-              window.chatUI.addSystemMessage(`${username} had a blacklisted voice and was switched to ${newVoice}`);
+              if (window.chatUI && window.chatUI.addSystemMessage) {
+                window.chatUI.addSystemMessage(`${username} had a blacklisted voice and was switched to ${newVoice}`);
+              }
            }
         }
       });
