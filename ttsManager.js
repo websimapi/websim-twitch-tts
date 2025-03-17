@@ -1,6 +1,6 @@
 (function() {
-  // Create logger for this module
-  const logger = window.debugLogger.createLogger('TTSManager');
+  // Ensure debugLogger exists before attempting to create a logger
+  const logger = window.debugLogger ? window.debugLogger.createLogger('TTSManager') : console;
   
   const tts = window.speechSynthesis;
   const ttsToggleButton = document.getElementById('tts-toggle');
