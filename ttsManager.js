@@ -1,4 +1,7 @@
 (function() {
+  // Create logger for this module
+  const logger = window.debugLogger.createLogger('TTSManager');
+  
   const tts = window.speechSynthesis;
   const ttsToggleButton = document.getElementById('tts-toggle');
   const ttsClearQueueButton = document.getElementById('tts-clear-queue');
@@ -35,6 +38,7 @@
   }
 
   function loadTTSState() {
+    logger.info('Loading TTS state from localStorage');
     ttsState.users = new Map(JSON.parse(localStorage.getItem('ttsUsers') || '[]'));
     if(ttsToggleButton) {
       ttsToggleButton.textContent = ttsState.enabled ? 'TTS Enabled' : 'TTS Disabled';
@@ -60,6 +64,7 @@
   }
 
   function resetTTS() {
+    logger.warn('Resetting TTS state due to error or manual reset');
     if (tts.speaking) {
       tts.cancel();
     }
@@ -138,13 +143,22 @@
 
   function queueTTSMessage(text, username) {
     username = username.toLowerCase();
-    if (window.ttsManager.isUserMuted(username)) return;
+    if (window.ttsManager.isUserMuted(username)) {
+      logger.debug(`Skip TTS for muted user: ${username}`);
+      return;
+    }
+    
     if (text[0] === '!' && !(window.gambleManager && window.gambleManager.isGambleTrigger(text.toLowerCase()))) {
+      logger.debug(`Skip TTS for command: ${text}`);
       return;
     }
+    
     if (!ttsState.enabled || !ttsState.users.has(username)) {
+      logger.debug(`Skip TTS - enabled: ${ttsState.enabled}, user registered: ${ttsState.users.has(username)}`);
       return;
     }
+    
+    logger.info(`Queueing TTS message for ${username}`, text);
     const chunks = window.chatUtils.splitMessageIntoChunks(text);
     const voices = tts.getVoices();
     const voiceName = ttsState.users.get(username);
