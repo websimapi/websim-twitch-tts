@@ -27,6 +27,7 @@
         <button id="export-import-settings-btn" class="control-btn add-btn">Export/Import Settings</button>
         <button id="mute-settings-btn" class="control-btn add-btn">Mute Settings</button>
         <button id="voice-settings-btn" class="control-btn add-btn">Voice Settings</button>
+        <button id="queue-settings-btn" class="control-btn add-btn">Queue Settings</button>
       </div>
       <!-- Gamble Settings Modal -->
       <div id="gamble-settings-modal" class="modal">
@@ -130,11 +131,35 @@
             </label>
             <label>
               Blacklisted Voices:
-              <select id="blacklisted-voices-dropdown" multiple style="width:100%; height:150px;"></select>
+              <div id="blacklisted-voices" class="blacklist-container"></div>
             </label>
             <div class="button-group">
               <button id="save-voice-settings" class="control-btn add-btn">Save Settings</button>
               <button id="close-voice-settings" class="control-btn clear-btn">Close</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- Queue Settings Modal -->
+      <div id="queue-settings-modal" class="modal">
+        <div class="modal-content">
+          <h4>Queue Settings</h4>
+          <div class="settings-form">
+            <label class="checkbox-label">
+              Enable Auto Skip:
+              <input type="checkbox" id="queue-auto-skip-toggle">
+            </label>
+            <label>
+              Threshold (seconds): 
+              <input type="number" id="queue-threshold-seconds" min="1" value="7">
+            </label>
+            <label>
+              Maximum Queue Length:
+              <input type="number" id="queue-max-length" min="1" value="100">
+            </label>
+            <div class="button-group">
+              <button id="save-queue-settings" class="control-btn add-btn">Save Settings</button>
+              <button id="close-queue-settings" class="control-btn clear-btn">Close</button>
             </div>
           </div>
         </div>
@@ -178,6 +203,7 @@
   <script src="scheduledEvents.js"></script>
   <script src="muteSettings.js"></script>
   <script src="voiceSettings.js"></script>
+  <script src="queueSettings.js"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516" integrity="sha512-8DS7rgIrAmghBFwoOTujcf6D9rXvH8xm8JQ1Ja01h9QX8EzXldiszufYa4IFfKdLUKTTrnSFXLDkUEOTrZQ8Qg==" data-cf-beacon='{"version":"2024.11.0","token":"4c6229722a6346bc8eb5cb0e5eae5d41","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 </body>
 </html>

@@ -105,6 +105,15 @@
   }
 
   function processTTSQueue() {
+    const autoSkipEnabled = localStorage.getItem('queueAutoSkipEnabled') === 'true';
+    const thresholdSeconds = parseInt(localStorage.getItem('queueThresholdSeconds')) || 7;
+    if (autoSkipEnabled) {
+      const now = Date.now();
+      while (ttsState.queue.length > 0 && (now - ttsState.queue[0].queuedTime) > thresholdSeconds * 1000) {
+        const skipped = ttsState.queue.shift();
+        window.chatUI.addSystemMessage(`Skipped queued message from ${skipped.username} (waiting too long)`);
+      }
+    }
     if (!ttsState.enabled || ttsState.speaking || ttsState.queue.length === 0) {
       updateQueueDisplay();
       return;
@@ -145,6 +154,11 @@
     if (!ttsState.enabled || !ttsState.users.has(username)) {
       return;
     }
+    const maxQueue = parseInt(localStorage.getItem('queueMaxLength')) || 100;
+    if (ttsState.queue.length >= maxQueue) {
+      window.chatUI.addSystemMessage(`Queue is full; new message from ${username} was not added.`);
+      return;
+    }
     const chunks = window.chatUtils.splitMessageIntoChunks(text);
     const voices = tts.getVoices();
     const voiceName = ttsState.users.get(username);
@@ -159,6 +173,7 @@
       utterance.volume = 1;
       utterance.username = username;
       utterance.displayText = displayText;
+      utterance.queuedTime = Date.now();
       utterance.onerror = function(event) {
         console.error('TTS Error:', event);
         resetTTS();
@@ -170,6 +185,11 @@
   }
 
   function queueCustomTTSMessage(text, voiceName, username) {
+    const maxQueue = parseInt(localStorage.getItem('queueMaxLength')) || 100;
+    if (ttsState.queue.length >= maxQueue) {
+      window.chatUI.addSystemMessage(`Queue is full; custom TTS message from ${username} was not added.`);
+      return;
+    }
     const chunks = window.chatUtils.splitMessageIntoChunks(text);
     const voices = tts.getVoices();
     const voice = voices.find(v => v.name === voiceName);
@@ -183,6 +203,7 @@
       utterance.volume = 1;
       utterance.username = username;
       utterance.displayText = displayText;
+      utterance.queuedTime = Date.now();
       utterance.onerror = function(event) {
         console.error('TTS Error:', event);
         resetTTS();
