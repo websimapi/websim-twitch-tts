@@ -2,7 +2,7 @@
   const voiceSettingsBtn = document.getElementById('voice-settings-btn');
   const voiceSettingsModal = document.getElementById('voice-settings-modal');
   const voicePickToggle = document.getElementById('voice-pick-toggle');
-  const blacklistDropdown = document.getElementById('blacklisted-voices-dropdown'); 
+  const blacklistContainer = document.getElementById('blacklisted-voices-dropdown'); 
   const saveVoiceSettingsBtn = document.getElementById('save-voice-settings');
   const closeVoiceSettingsBtn = document.getElementById('close-voice-settings');
 
@@ -11,7 +11,6 @@
     voicePickToggle.checked = (pickVoiceEnabled === 'true');
 
     const voices = window.speechSynthesis.getVoices();
-    blacklistDropdown.innerHTML = '';
     const blacklistedStr = localStorage.getItem('blacklistedVoices');
     let storedBlacklist = [];
     if (blacklistedStr) {
@@ -21,22 +20,38 @@
         console.error(e);
       }
     }
+    blacklistContainer.innerHTML = '';
     voices.forEach(voice => {
-      const option = document.createElement('option');
-      option.value = voice.name;
-      option.textContent = `${voice.name} (${voice.lang})`;
-      if (storedBlacklist.includes(voice.name)) {
-        option.selected = true;
-      }
-      blacklistDropdown.appendChild(option);
+      const wrapper = document.createElement('div');
+      wrapper.style.display = 'flex';
+      wrapper.style.alignItems = 'center';
+      wrapper.style.marginBottom = '6px';
+
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.id = `voice-${voice.name.replace(/\s+/g, '-')}`;
+      checkbox.value = voice.name;
+      checkbox.checked = storedBlacklist.includes(voice.name);
+      checkbox.style.marginRight = '8px';
+
+      const label = document.createElement('label');
+      label.htmlFor = checkbox.id;
+      label.textContent = `${voice.name} (${voice.lang})`;
+
+      wrapper.appendChild(checkbox);
+      wrapper.appendChild(label);
+      blacklistContainer.appendChild(wrapper);
     });
   }
 
   function saveVoiceSettings() {
     const pickEnabled = voicePickToggle.checked;
     localStorage.setItem('pickVoiceEnabled', pickEnabled);
-    const selectedOptions = Array.from(blacklistDropdown.selectedOptions).map(opt => opt.value);
-    localStorage.setItem('blacklistedVoices', JSON.stringify(selectedOptions));
+    const checkboxes = blacklistContainer.querySelectorAll('input[type="checkbox"]');
+    const selectedVoices = Array.from(checkboxes)
+      .filter(cb => cb.checked)
+      .map(cb => cb.value);
+    localStorage.setItem('blacklistedVoices', JSON.stringify(selectedVoices));
 
     applyVoiceBlacklist();
     updateVoiceSettingsButton();
