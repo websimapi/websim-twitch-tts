@@ -1,3 +1,9 @@
+import * as chatUI from './chatUI.js';
+import * as ttsManager from './ttsManager.js';
+import * as gambleManager from './gambleManager.js';
+import * as imageGenManager from './imageGenManager.js';
+import * as config from 'config';
+
 (function() {
   const channelInput = document.getElementById('channel-input');
   const connectButton = document.getElementById('connect-btn');
@@ -43,11 +49,14 @@
       statusDiv.textContent = 'Disconnected from chat';
       connectButton.textContent = 'Connect';
     });
-    client.on('message', function(channel, tags, message, self) {
+    client.on('message', async function(channel, tags, message, self) {
       const username = tags['display-name'] || 'Anonymous';
       const lowerMessage = message.trim().toLowerCase();
-      
-      // Check for self mute/unmute commands if allowed
+      const messageParts = message.trim().split(' ');
+      const command = messageParts[0].toLowerCase();
+      const args = messageParts.slice(1);
+      const promptText = args.join(' ');
+
       const allowSelfMute = localStorage.getItem('allowSelfMute') === 'false' ? false : true;
       if (allowSelfMute) {
         const muteCommands = (localStorage.getItem('selfMuteCommands') || '!tts-off, !mute, bonesd3to').toLowerCase().split(',').map(s => s.trim());
@@ -65,8 +74,7 @@
           return;
         }
       }
-      
-      // Process voice pick command if enabled
+
       if (lowerMessage.startsWith("!pickvoice ")) {
         if (localStorage.getItem("pickVoiceEnabled") === "true") {
           const voiceQuery = lowerMessage.substring("!pickvoice ".length).trim();
@@ -85,25 +93,33 @@
         }
         return;
       }
-      
+
+      if (command === imageGenManager.getCommandTrigger()) {
+        await imageGenManager.handleImageCommand(username, promptText);
+        chatUI.addChatMessage(username, message, tags);
+        return;
+      }
+
       if (window.getCustomCommand) {
         const customCmd = window.getCustomCommand(lowerMessage);
         if (customCmd) {
-          window.chatUI.addChatMessage(username, message, tags);
+          chatUI.addChatMessage(username, message, tags);
           if (customCmd.type === "tts") {
-            window.ttsManager.queueCustomTTSMessage(customCmd.message, customCmd.voice, username);
+            ttsManager.queueCustomTTSMessage(customCmd.message, customCmd.voice, username);
           } else if (customCmd.type === "audio") {
-            window.ttsManager.playCustomAudio(customCmd.audioData);
+            ttsManager.playCustomAudio(customCmd.audioData);
           }
           return;
         }
       }
-      if (window.gambleManager && window.gambleManager.isGambleTrigger(lowerMessage)) {
-        const handled = window.gambleManager.handleGambleCommand(username, message);
+
+      if (gambleManager && gambleManager.isGambleTrigger(lowerMessage)) {
+        const handled = gambleManager.handleGambleCommand(username, message);
         if (handled) return;
       }
-      window.chatUI.addChatMessage(username, message, tags);
-      window.ttsManager.queueTTSMessage(message, username);
+
+      chatUI.addChatMessage(username, message, tags);
+      ttsManager.queueTTSMessage(message, username);
     });
   }
 
@@ -114,11 +130,15 @@
     }
   }
 
-  window.addEventListener('DOMContentLoaded', function() {
+  document.addEventListener('DOMContentLoaded', () => {
     const lastChannel = localStorage.getItem('lastConnectedChannel');
     if (lastChannel) {
       channelInput.value = lastChannel;
     }
+    if (window.ttsManager) ttsManager.loadTTSState();
+    if (window.gambleManager) { /* Potentially load gamble settings if needed here */ }
+    if (window.imageGenManager) imageGenManager.loadImageGenSettings();
+    if (window.galleryDisplay) galleryDisplay.loadGallery();
   });
 
   window.chatClient = {

@@ -8,19 +8,30 @@
   height: 100%;
   background: rgba(0, 0, 0, 0.5);
   z-index: 1000;
+  overflow-y: auto; /* Allow modal itself to scroll if content overflows */
 }
 .modal-content {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  position: relative; /* Changed from absolute */
+  margin: 10vh auto; /* Center vertically with margin, allow scrolling */
   background: white;
   padding: 20px;
   border-radius: 8px;
-  min-width: 300px;
-  max-height: 80vh;
-  overflow-y: auto;
+  width: 90%; /* Use percentage width */
+  max-width: 600px; /* Max width */
+  /* removed max-height and overflow-y, handled by .modal */
+  box-shadow: 0 5px 15px rgba(0,0,0,0.2);
 }
+
+/* Adjustments for smaller screens */
+@media (max-width: 700px) {
+    .modal-content {
+        width: 95%;
+        margin: 5vh auto; /* Less vertical margin */
+        padding: 15px;
+    }
+}
+
+
 .settings-form {
   display: flex;
   flex-direction: column;
@@ -28,32 +39,45 @@
 }
 .settings-form label {
   display: flex;
-  flex-direction: column;
+  flex-direction: column; /* Stack label text above input */
   gap: 5px;
 }
-.settings-form input,
+.settings-form input[type="text"],
+.settings-form input[type="number"],
+.settings-form input[type="file"],
 .settings-form select,
 .settings-form textarea {
   padding: 8px;
   border: 1px solid #ddd;
   border-radius: 4px;
+  width: 100%; /* Make inputs fill width */
+  box-sizing: border-box; /* Include padding/border in width */
 }
 .checkbox-label {
   display: flex;
-  flex-direction: row;
+  flex-direction: row; /* Keep checkbox and text side-by-side */
   align-items: center;
   gap: 10px;
+}
+.checkbox-label input[type="checkbox"] {
+    width: auto; /* Override the 100% width for checkboxes */
 }
 .button-group {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
-  justify-content: flex-end;
+  justify-content: flex-end; /* Align buttons to the right */
+  margin-top: 15px; /* Add space above buttons */
 }
 .unsaved-warning {
   color: red;
   text-align: center;
   margin-bottom: 10px;
+  font-size: 0.9em;
+  padding: 5px;
+  background-color: #f8d7da;
+  border: 1px solid #f5c6cb;
+  border-radius: 4px;
 }
 .center {
   text-align: center;
@@ -61,4 +85,17 @@
 }
 .right {
   text-align: right;
+}
+
+/* Style for blacklist container in voice settings */
+.blacklist-container {
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    padding: 10px;
+    border-radius: 4px;
+    background-color: #f9f9f9;
+}
+.blacklist-container div { /* Style each voice entry */
+    padding: 4px 0;
 }

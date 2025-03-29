@@ -12,7 +12,6 @@ body {
   padding: 20px;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  overflow: hidden;
 }
 #connect-form {
   margin-bottom: 20px;
@@ -22,21 +21,22 @@ body {
   flex-wrap: wrap;
 }
 #channel-input {
+  flex: 1 1 200px;
   padding: 8px;
   font-size: 16px;
   border: 2px solid #6441A4;
   border-radius: 4px;
-  width: 100%;
-  min-width: 0;
+  min-width: 150px;
 }
 #connect-btn {
-  padding: 8px 16px;
+  padding: 9px 16px;
   font-size: 16px;
   background: #6441A4;
   color: white;
   border: none;
   border-radius: 4px;
   cursor: pointer;
+  white-space: nowrap;
 }
 #connect-btn:hover {
   background: #7454B3;
@@ -64,4 +64,22 @@ body {
   border-radius: 4px;
   padding: 10px;
   background: #fff;
+}
+
+.tts-button-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.control-btn {
+  flex-shrink: 0;
+}
+
+.control-btn.off {
+  background-color: #6c757d;
+  opacity: 0.8;
+}
+.control-btn.off:hover {
+  opacity: 0.9;
 }

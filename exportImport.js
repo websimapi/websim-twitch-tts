@@ -1,3 +1,9 @@
+import * as ttsManager from './ttsManager.js';
+import * as chatUI from './chatUI.js';
+import * as customCommands from './customCommands.js';
+import * as imageGenManager from './imageGenManager.js';
+import * as galleryDisplay from './galleryDisplay.js';
+
 (function() {
   // Helper: Get all localStorage settings as an object
   function getAllSettings() {
@@ -8,7 +14,7 @@
     }
     return settings;
   }
-  
+
   // Trigger download of settings as a JSON file
   function exportSettingsDownload() {
     const settings = getAllSettings();
@@ -23,7 +29,7 @@
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
   }
-  
+
   // Import settings from an uploaded file and update UI immediately
   function importSettingsFromFile(event) {
     const file = event.target.files[0];
@@ -34,55 +40,91 @@
         const imported = JSON.parse(e.target.result);
         for (const key in imported) {
           if (imported.hasOwnProperty(key)) {
+            // Special handling for gallery to avoid excessively large imports if needed
+            // if (key === 'imageGallery' && JSON.stringify(imported[key]).length > 4 * 1024 * 1024) {
+            //    console.warn("Skipping import of large imageGallery data.");
+            //    continue;
+            // }
             localStorage.setItem(key, imported[key]);
           }
         }
         // Immediately update the UI elements that depend on settings
-        if (window.reloadChatSettings) {
+        if (window.reloadChatSettings) { 
           window.reloadChatSettings();
         }
-        // Update Gamble Settings Modal fields
-        const gambleCooldownInput = document.getElementById('gamble-cooldown');
-        if (gambleCooldownInput) {
-          gambleCooldownInput.value = localStorage.getItem('gambleCooldown') || 0;
-        }
-        const gambleEnabledCheckbox = document.getElementById('gamble-enabled');
-        if (gambleEnabledCheckbox) {
-          gambleEnabledCheckbox.checked = localStorage.getItem('gambleEnabled') === 'true';
-        }
-        const gambleTriggersInput = document.getElementById('gamble-triggers');
-        if (gambleTriggersInput) {
-          let triggers = localStorage.getItem('gambleTriggers');
-          try {
-            triggers = JSON.parse(triggers);
-          } catch (err) {
-            triggers = [];
+
+        // Update Gamble Settings Modal fields & button state
+        if (window.gambleManager && window.gambleManager.loadGambleSettingsIntoModal) {
+            window.gambleManager.reloadSettings?.(); 
+        } else { 
+          const gambleCooldownInput = document.getElementById('gamble-cooldown');
+          if (gambleCooldownInput) {
+            gambleCooldownInput.value = localStorage.getItem('gambleCooldown') || 0;
           }
-          gambleTriggersInput.value = triggers.join(', ');
+          const gambleEnabledCheckbox = document.getElementById('gamble-enabled');
+          if (gambleEnabledCheckbox) {
+            gambleEnabledCheckbox.checked = localStorage.getItem('gambleEnabled') === 'true';
+          }
+          const gambleTriggersInput = document.getElementById('gamble-triggers');
+          if (gambleTriggersInput) {
+            let triggers = localStorage.getItem('gambleTriggers');
+            try {
+              triggers = JSON.parse(triggers);
+            } catch (err) {
+              triggers = [];
+            }
+            gambleTriggersInput.value = triggers.join(', ');
+          }
         }
+
+        // Update Image Gen Settings Modal fields & button state
+        if (imageGenManager && imageGenManager.loadImageGenSettings) {
+             imageGenManager.loadImageGenSettings(); 
+        }
+
         // Update Auto Add User Toggle
         const autoAddUserToggle = document.getElementById('auto-add-user-toggle');
         if (autoAddUserToggle) {
           let autoAddUserEnabled = localStorage.getItem('autoAddUserEnabled');
           autoAddUserEnabled = autoAddUserEnabled === null ? true : autoAddUserEnabled === 'true';
           autoAddUserToggle.textContent = autoAddUserEnabled ? 'Auto Add User: On' : 'Auto Add User: Off';
+          autoAddUserToggle.classList.toggle('off', !autoAddUserEnabled);
         }
+
         // Update Custom Commands UI if available
-        if (window.loadCustomCommands) {
-          window.loadCustomCommands();
+        if (customCommands && customCommands.loadCustomCommands) {
+          customCommands.loadCustomCommands();
+          customCommands.refreshCustomCommandsUI();
+          customCommands.prepareCustomCommandAudioFiles(); 
         }
-        if (window.refreshCustomCommandsUI) {
-          window.refreshCustomCommandsUI();
-        }
-        // Prepare custom command audio files so that sounds are ready to use immediately after import
-        if (window.prepareCustomCommandAudioFiles) {
-          window.prepareCustomCommandAudioFiles();
-        }
+
         // Update TTS Users UI immediately after import
-        if (window.ttsManager && window.ttsManager.loadTTSState) {
-          window.ttsManager.loadTTSState();
+        if (ttsManager && ttsManager.loadTTSState) {
+          ttsManager.loadTTSState();
         }
+
+        // Update Mute Settings UI
+        if (window.muteSettings && window.muteSettings.loadMuteSettings) {
+             window.muteSettings.loadMuteSettings();
+             window.muteSettings.updateMuteSettingsButton();
+        }
+
+        // Update Voice Settings UI
+        if (window.voiceSettings && window.voiceSettings.loadVoiceSettings) {
+             window.voiceSettings.loadVoiceSettings();
+             window.voiceSettings.applyVoiceBlacklist(); 
+             window.voiceSettings.updateVoiceSettingsButton();
+        }
+
+        // Update Gallery Display
+        if (galleryDisplay && galleryDisplay.loadGallery) {
+            galleryDisplay.loadGallery();
+        }
+
         alert('Settings imported successfully.');
+        // Optionally reload the page for simplicity if complex UI updates are tricky
+        // window.location.reload();
+
       } catch (err) {
         alert('Failed to import settings: Invalid JSON.');
         console.error(err);
@@ -90,32 +132,37 @@
     };
     reader.readAsText(file);
   }
-  
+
   function setupExportImportModal() {
     const openBtn = document.getElementById('export-import-settings-btn');
     const modal = document.getElementById('export-import-modal');
     const closeBtn = document.getElementById('close-export-import-btn');
     const exportBtn = document.getElementById('download-export-btn');
     const importFileInput = document.getElementById('import-settings-file');
-  
+
     openBtn.addEventListener('click', () => {
       modal.style.display = 'block';
     });
-  
+
     closeBtn.addEventListener('click', () => {
       modal.style.display = 'none';
     });
-  
+
     // Clicking outside modal-content closes modal
     window.addEventListener('click', (e) => {
       if (e.target === modal) {
         modal.style.display = 'none';
       }
     });
-  
+
     exportBtn.addEventListener('click', exportSettingsDownload);
     importFileInput.addEventListener('change', importSettingsFromFile);
   }
-  
+
   document.addEventListener('DOMContentLoaded', setupExportImportModal);
+
+  // Expose functions if needed by other modules, though DOMContentLoaded is preferred
+  // window.exportSettingsDownload = exportSettingsDownload;
+  // window.importSettingsFromFile = importSettingsFromFile;
+
 })();

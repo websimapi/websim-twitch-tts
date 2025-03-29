@@ -1,0 +1,91 @@
+/* gallery.css - Styles for the image gallery */
+
+.gallery-controls {
+  margin: 20px 0 10px 0;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #ddd;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.gallery-controls h3 {
+  margin: 0;
+  color: #333;
+}
+
+#image-gallery-box {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 15px;
+  padding: 10px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  border: 1px solid #e0e0e0;
+  min-height: 100px; /* Ensure it has some height even when empty */
+}
+
+.gallery-item {
+  background: white;
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  transition: transform 0.2s ease-in-out;
+  display: flex;
+  flex-direction: column;
+}
+
+.gallery-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 3px 6px rgba(0,0,0,0.15);
+}
+
+.gallery-item a {
+  display: block;
+}
+
+.gallery-item img {
+  display: block;
+  width: 100%;
+  height: 150px; /* Fixed height for consistency */
+  object-fit: cover; /* Cover the area, cropping if needed */
+  border-bottom: 1px solid #eee;
+}
+
+.gallery-info {
+  padding: 8px;
+  font-size: 0.8em;
+  color: #555;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex-grow: 1; /* Take remaining space */
+}
+
+.gallery-prompt {
+  font-weight: bold;
+  color: #333;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gallery-user {
+  font-style: italic;
+  color: #666;
+}
+
+.gallery-time {
+  font-size: 0.9em;
+  color: #888;
+  margin-top: auto; /* Push time to the bottom */
+  text-align: right;
+}
+
+.empty-gallery {
+  grid-column: 1 / -1; /* Span all columns */
+  text-align: center;
+  padding: 20px;
+  color: #666;
+  font-style: italic;
+}

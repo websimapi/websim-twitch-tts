@@ -5,6 +5,14 @@
   <link rel="stylesheet" href="css/modals.css">
   <link rel="stylesheet" href="css/tts.css">
   <link rel="stylesheet" href="css/chat.css">
+  <link rel="stylesheet" href="css/gallery.css">
+  <script type="importmap">
+    {
+      "imports": {
+        "config": "./config.js"
+      }
+    }
+  </script>
 </head>
 <body>
   <div class="container">
@@ -27,7 +35,7 @@
         <button id="export-import-settings-btn" class="control-btn add-btn">Export/Import Settings</button>
         <button id="mute-settings-btn" class="control-btn add-btn">Mute Settings</button>
         <button id="voice-settings-btn" class="control-btn add-btn">Voice Settings</button>
-        <button id="queue-settings-btn" class="control-btn add-btn">Queue Settings</button>
+        <button id="image-gen-settings-btn" class="control-btn add-btn">Image Gen Settings</button>
       </div>
       <!-- Gamble Settings Modal -->
       <div id="gamble-settings-modal" class="modal">
@@ -140,26 +148,30 @@
           </div>
         </div>
       </div>
-      <!-- Queue Settings Modal -->
-      <div id="queue-settings-modal" class="modal">
+      <!-- Image Generation Settings Modal -->
+      <div id="image-gen-settings-modal" class="modal">
         <div class="modal-content">
-          <h4>Queue Settings</h4>
+          <h4>Image Generation Settings</h4>
+          <div id="image-gen-unsaved-warning" class="unsaved-warning" style="display:none;">You have unsaved changes. Click outside again to cancel.</div>
           <div class="settings-form">
             <label class="checkbox-label">
-              Enable Auto Skip:
-              <input type="checkbox" id="queue-auto-skip-toggle">
+              Enable "!image" Command:
+              <input type="checkbox" id="image-gen-enabled">
             </label>
             <label>
-              Threshold (seconds): 
-              <input type="number" id="queue-threshold-seconds" min="1" value="7">
+              Cooldown (seconds):
+              <input type="number" id="image-gen-cooldown" min="0" value="30">
             </label>
             <label>
-              Maximum Queue Length:
-              <input type="number" id="queue-max-length" min="1" value="100">
+              Command Trigger:
+              <input type="text" id="image-gen-trigger" placeholder="e.g., !image">
+            </label>
+            <label>
+              Max Gallery Size:
+              <input type="number" id="image-gen-max-gallery" min="1" value="20">
             </label>
             <div class="button-group">
-              <button id="save-queue-settings" class="control-btn add-btn">Save Settings</button>
-              <button id="close-queue-settings" class="control-btn clear-btn">Close</button>
+              <button id="save-image-gen-settings" class="control-btn add-btn">Save Settings</button>
             </div>
           </div>
         </div>
@@ -191,19 +203,27 @@
       </div>
     </div>
     <div id="chat-box"></div>
+    <div class="gallery-controls">
+      <h3>Image Gallery</h3>
+      <button id="clear-gallery-btn" class="control-btn clear-btn">Clear Gallery</button>
+    </div>
+    <div id="image-gallery-box">
+      <div class="empty-gallery">Gallery is empty. Use !image &lt;prompt&gt; to generate images.</div>
+    </div>
   </div>
   <script src="tmi.js"></script>
-  <script src="chatUtils.js"></script>
-  <script src="ttsManager.js"></script>
-  <script src="gambleManager.js"></script>
-  <script src="chatUI.js"></script>
-  <script src="chatClient.js"></script>
-  <script src="customCommands.js"></script>
-  <script src="exportImport.js"></script>
-  <script src="scheduledEvents.js"></script>
-  <script src="muteSettings.js"></script>
-  <script src="voiceSettings.js"></script>
-  <script src="queueSettings.js"></script>
+  <script type="module" src="chatUtils.js"></script>
+  <script type="module" src="ttsManager.js"></script>
+  <script type="module" src="gambleManager.js"></script>
+  <script type="module" src="chatUI.js"></script>
+  <script type="module" src="chatClient.js"></script>
+  <script type="module" src="customCommands.js"></script>
+  <script type="module" src="exportImport.js"></script>
+  <script type="module" src="scheduledEvents.js"></script>
+  <script type="module" src="muteSettings.js"></script>
+  <script type="module" src="voiceSettings.js"></script>
+  <script type="module" src="imageGenManager.js"></script>
+  <script type="module" src="galleryDisplay.js"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516" integrity="sha512-8DS7rgIrAmghBFwoOTujcf6D9rXvH8xm8JQ1Ja01h9QX8EzXldiszufYa4IFfKdLUKTTrnSFXLDkUEOTrZQ8Qg==" data-cf-beacon='{"version":"2024.11.0","token":"4c6229722a6346bc8eb5cb0e5eae5d41","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 </body>
 </html>
