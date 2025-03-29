@@ -1,7 +1,7 @@
 import * as chatUI from './chatUI.js';
 import * as chatUtils from './chatUtils.js';
-// Assuming gambleManager might need TTS integration later, keep import commented if not used directly now
-// import * as gambleManager from './gambleManager.js';
+import * as gambleManager from './gambleManager.js';
+import * as voiceSettings from './voiceSettings.js';
 
 const tts = window.speechSynthesis;
 const ttsToggleButton = document.getElementById('tts-toggle');
@@ -189,7 +189,7 @@ export function queueTTSMessage(text, username) {
     if (isUserMuted(username)) return;
 
     // Prevent commands from being read, unless it's a gamble command with text
-    const isGambleCmd = window.gambleManager && window.gambleManager.isGambleTrigger(text.toLowerCase());
+    const isGambleCmd = gambleManager.isGambleTrigger(text.toLowerCase());
     if (text.startsWith('!') && !isGambleCmd) {
         return; // Don't read standard commands
     }
@@ -197,7 +197,7 @@ export function queueTTSMessage(text, username) {
     // Handle gamble command text if present
     let textToRead = text;
     if (isGambleCmd) {
-         const triggerMatched = window.gambleManager.getGambleTriggers().find(trigger => text.toLowerCase().startsWith(trigger.toLowerCase()));
+         const triggerMatched = gambleManager.getGambleTriggers().find(trigger => text.toLowerCase().startsWith(trigger.toLowerCase()));
          textToRead = text.slice(triggerMatched.length).trim();
          if (!textToRead) return; // Don't queue if gamble command has no extra text
     }
@@ -278,7 +278,6 @@ export function playCustomAudio(audioData) {
     });
 }
 
-
 export function addTTSUser(username, voiceName) {
     username = username.toLowerCase();
     const voices = tts.getVoices();
@@ -308,18 +307,16 @@ export function removeTTSUser(username) {
 export function updateUserVoice(username, voiceName) {
     username = username.toLowerCase();
     if (ttsState.users.has(username)) {
-        // Apply blacklist check if voiceSettings module is available
-        if (window.voiceSettings && window.voiceSettings.isVoiceBlacklisted) {
-             if (window.voiceSettings.isVoiceBlacklisted(voiceName)) {
-                 const allowed = window.voiceSettings.getAllowedVoices();
-                 if (allowed.length > 0) {
-                     const newVoice = allowed[Math.floor(Math.random() * allowed.length)].name;
-                      chatUI.addSystemMessage(`${username}'s selected voice "${voiceName}" is blacklisted. Switched to "${newVoice}".`);
-                     voiceName = newVoice;
-                 } else {
-                      chatUI.addSystemMessage(`Warning: ${username}'s selected voice "${voiceName}" is blacklisted, and no allowed voices are available!`);
-                     // Keep the blacklisted voice? Or remove the user? For now, keep.
-                 }
+        // Apply blacklist check using imported voiceSettings
+        if (voiceSettings.isVoiceBlacklisted(voiceName)) {
+             const allowed = voiceSettings.getAllowedVoices();
+             if (allowed.length > 0) {
+                 const newVoice = allowed[Math.floor(Math.random() * allowed.length)].name;
+                  chatUI.addSystemMessage(`${username}'s selected voice "${voiceName}" is blacklisted. Switched to "${newVoice}".`);
+                 voiceName = newVoice;
+             } else {
+                  chatUI.addSystemMessage(`Warning: ${username}'s selected voice "${voiceName}" is blacklisted, and no allowed voices are available!`);
+                 // Keep the blacklisted voice? Or remove the user? For now, keep.
              }
         }
 
@@ -346,7 +343,6 @@ export function updateUserVoice(username, voiceName) {
         // No need to call updateTTSUsersList() here if only updating select value
     }
 }
-
 
 export function updateTTSUsersList() {
     if (!ttsUsersList) return;
@@ -449,7 +445,6 @@ export function getTTSState() {
     return ttsState;
 }
 
-
 // --- Initialization and Event Listeners ---
 
 // Watch for stuck TTS state
@@ -466,8 +461,10 @@ setInterval(function() {
 tts.onvoiceschanged = function() {
     console.log("Voices loaded or changed.");
     populateVoiceList();
-    // Maybe re-apply voices to users if default was assigned?
-    loadTTSState(); // Reload state to ensure correct voices are assigned if they loaded late
+    // Re-apply voice settings/blacklist checks after voices change
+    voiceSettings.applyVoiceBlacklist();
+    // Reload state to ensure correct voices are assigned if they loaded late
+    loadTTSState();
 };
 
 // Initial setup calls

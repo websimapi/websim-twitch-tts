@@ -6,6 +6,8 @@ import * as config from 'config';
 import * as customCommands from './customCommands.js';
 import * as muteSettings from './muteSettings.js';
 import * as voiceSettings from './voiceSettings.js';
+import * as galleryDisplay from './galleryDisplay.js'; 
+import * as scheduledEvents from './scheduledEvents.js'; 
 
 (function() {
     const channelInput = document.getElementById('channel-input');
@@ -60,6 +62,7 @@ import * as voiceSettings from './voiceSettings.js';
             const args = messageParts.slice(1);
             const promptText = args.join(' ');
 
+            // Prioritize mute/unmute commands
             if (muteSettings.getAllowSelfMute()) {
                 const muteCmds = muteSettings.getMuteCommands();
                 const unmuteCmds = muteSettings.getUnmuteCommands();
@@ -68,18 +71,22 @@ import * as voiceSettings from './voiceSettings.js';
                         ttsManager.toggleMuteUser(username);
                         chatUI.addSystemMessage(`${username} muted their TTS.`);
                     }
-                    return; 
+                    chatUI.addChatMessage(username, message, tags); 
+                    return;
                 }
                 if (unmuteCmds.includes(lowerMessage)) {
                     if (ttsManager.isUserMuted(username)) {
                         ttsManager.toggleMuteUser(username);
                         chatUI.addSystemMessage(`${username} unmuted their TTS.`);
                     }
-                    return; 
+                    chatUI.addChatMessage(username, message, tags); 
+                    return;
                 }
             }
 
+            // Check for !pickvoice command
             if (voiceSettings.isPickVoiceEnabled() && command === voiceSettings.getPickVoiceTrigger()) {
+                chatUI.addChatMessage(username, message, tags); 
                 const voiceQuery = args.join(' ').trim().toLowerCase();
                 if(voiceQuery) {
                     const matchedVoice = voiceSettings.findMatchingVoice(voiceQuery);
@@ -92,16 +99,17 @@ import * as voiceSettings from './voiceSettings.js';
                 } else {
                     chatUI.addSystemMessage(`Usage: ${voiceSettings.getPickVoiceTrigger()} <voice name or part of name>`);
                 }
-                chatUI.addChatMessage(username, message, tags); 
-                return; 
+                return;
             }
 
+            // Check for !image command
             if (command === imageGenManager.getCommandTrigger()) {
-                await imageGenManager.handleImageCommand(username, promptText);
                 chatUI.addChatMessage(username, message, tags); 
-                return; 
+                await imageGenManager.handleImageCommand(username, promptText);
+                return;
             }
 
+            // Check for Custom Commands
             const customCmd = customCommands.getCustomCommand(lowerMessage);
             if (customCmd) {
                 chatUI.addChatMessage(username, message, tags); 
@@ -112,24 +120,27 @@ import * as voiceSettings from './voiceSettings.js';
                 } else if (customCmd.type === "audio" && customCmd.audioData) {
                     ttsManager.playCustomAudio(customCmd.audioData);
                 }
-                return; 
+                return;
             }
 
-            if (gambleManager && gambleManager.isGambleTrigger(lowerMessage)) {
-                const handled = gambleManager.handleGambleCommand(username, message);
+            // Check for Gamble Commands
+            if (gambleManager.isGambleTrigger(lowerMessage)) {
                 chatUI.addChatMessage(username, message, tags); 
+                const handled = gambleManager.handleGambleCommand(username, message);
                 if (handled) return; 
             }
 
+            // If no command matched, display the message and queue TTS if applicable
             chatUI.addChatMessage(username, message, tags);
 
             const autoAddEnabled = config.getSetting('autoAddUserEnabled');
-            if (autoAddEnabled && !ttsManager.getTTSState().users.has(username.toLowerCase())) {
-                ttsManager.addTTSUser(username.toLowerCase()); 
+            const lowerUsername = username.toLowerCase();
+            if (autoAddEnabled && !ttsManager.getTTSState().users.has(lowerUsername)) {
+                ttsManager.addTTSUser(lowerUsername); 
             }
 
-            if(ttsManager.getTTSState().users.has(username.toLowerCase()) && !ttsManager.isUserMuted(username)) {
-                ttsManager.queueTTSMessage(message, username);
+            if(ttsManager.getTTSState().users.has(lowerUsername) && !ttsManager.isUserMuted(lowerUsername)) {
+                ttsManager.queueTTSMessage(message, username); 
             }
         });
     }
@@ -142,27 +153,34 @@ import * as voiceSettings from './voiceSettings.js';
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-        const lastChannel = localStorage.getItem('lastConnectedChannel');
-        if (lastChannel) {
-            channelInput.value = lastChannel;
-        }
         ttsManager.loadTTSState(); 
         gambleManager.loadGambleSettings(); 
         imageGenManager.loadImageGenSettings();
         muteSettings.loadMuteSettings(); 
         voiceSettings.loadVoiceSettings(); 
         customCommands.loadCustomCommands(); 
-        customCommands.prepareCustomCommandAudioFiles(); 
-        if (window.galleryDisplay) galleryDisplay.loadGallery();
-        if (window.scheduledEvents) window.scheduledEvents.load(); 
+        scheduledEvents.load(); 
 
-        window.speechSynthesis.onvoiceschanged = () => {
-           ttsManager.populateVoiceList(); 
-           voiceSettings.loadVoiceSettings(); 
+        customCommands.prepareCustomCommandAudioFiles(); 
+        galleryDisplay.loadGallery(); 
+
+        const setupVoices = () => {
+            console.log("Setting up voices...");
+            ttsManager.populateVoiceList(); 
+            voiceSettings.applyVoiceBlacklist(); 
         };
+
         if (window.speechSynthesis.getVoices().length > 0) {
-           ttsManager.populateVoiceList();
-           voiceSettings.loadVoiceSettings();
+            console.log("Voices already available.");
+            setupVoices();
+        } else {
+            console.log("Waiting for voices to load...");
+            window.speechSynthesis.onvoiceschanged = setupVoices;
+        }
+
+        const lastChannel = localStorage.getItem('lastConnectedChannel');
+        if (lastChannel) {
+            channelInput.value = lastChannel;
         }
     });
 
