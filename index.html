@@ -9,7 +9,19 @@
   <script type="importmap">
     {
       "imports": {
-        "config": "./config.js"
+        "config": "./config.js",
+        "./chatUI.js": "./chatUI.js",
+        "./ttsManager.js": "./ttsManager.js",
+        "./gambleManager.js": "./gambleManager.js",
+        "./imageGenManager.js": "./imageGenManager.js",
+        "./customCommands.js": "./customCommands.js",
+        "./exportImport.js": "./exportImport.js",
+        "./scheduledEvents.js": "./scheduledEvents.js",
+        "./muteSettings.js": "./muteSettings.js",
+        "./voiceSettings.js": "./voiceSettings.js",
+        "./galleryDisplay.js": "./galleryDisplay.js",
+        "./chatUtils.js": "./chatUtils.js",
+        "./chatClient.js": "./chatClient.js"
       }
     }
   </script>
@@ -21,209 +33,242 @@
       <input type="text" id="channel-input" placeholder="Enter channel name">
       <button id="connect-btn">Connect</button>
     </div>
-    <div id="status" class="status"></div>
-    <div class="tts-controls">
-      <h3>TTS Controls</h3>
+    <div id="status" class="status disconnected"></div>
+
+    <div class="controls-section tts-controls">
+      <h3>Controls</h3>
       <div class="tts-button-group">
         <button id="tts-toggle" class="control-btn toggle-btn">TTS Enabled</button>
-        <button id="tts-clear-queue" class="control-btn clear-btn">Clear TTS Queue</button>
         <button id="tts-filter-toggle" class="control-btn toggle-btn">Filter Enabled</button>
-        <button id="gamble-settings-btn" class="control-btn toggle-btn">Gamble Settings</button>
         <button id="auto-add-user-toggle" class="control-btn toggle-btn">Auto Add User: On</button>
+        <button id="gamble-settings-btn" class="control-btn toggle-btn">Gamble Settings</button>
+        <button id="mute-settings-btn" class="control-btn toggle-btn">Mute Settings</button>
+        <button id="voice-settings-btn" class="control-btn toggle-btn">Voice Settings</button>
+        <button id="image-gen-settings-btn" class="control-btn toggle-btn">Image Gen Settings</button>
         <button id="custom-commands-btn" class="control-btn add-btn">Custom Commands</button>
         <button id="scheduled-events-btn" class="control-btn add-btn">Scheduled Events</button>
-        <button id="export-import-settings-btn" class="control-btn add-btn">Export/Import Settings</button>
-        <button id="mute-settings-btn" class="control-btn add-btn">Mute Settings</button>
-        <button id="voice-settings-btn" class="control-btn add-btn">Voice Settings</button>
-        <button id="image-gen-settings-btn" class="control-btn add-btn">Image Gen Settings</button>
+        <button id="export-import-settings-btn" class="control-btn add-btn">Export/Import</button>
+        <button id="tts-clear-queue" class="control-btn clear-btn">Clear TTS Queue</button>
       </div>
-      <!-- Gamble Settings Modal -->
-      <div id="gamble-settings-modal" class="modal">
-        <div class="modal-content">
-          <h4>Gamble Voice Settings</h4>
-          <div id="gamble-unsaved-warning" class="unsaved-warning" style="display:none;">You have unsaved changes. Click outside again to cancel.</div>
-          <div class="settings-form">
-            <label class="checkbox-label">
-              Enable Gamble Voice:
-              <input type="checkbox" id="gamble-enabled">
-            </label>
-            <label>
-              Cooldown (seconds):
-              <input type="number" id="gamble-cooldown" min="0" value="0">
-            </label>
-            <label>
-              Command Triggers (comma separated):
-              <input type="text" id="gamble-triggers" placeholder="e.g., !gamblevoice, !gv, bonesd3TC">
-            </label>
-            <div class="button-group">
-              <button id="save-gamble-settings" class="control-btn add-btn">Save Settings</button>
-              <button id="restore-gamble-defaults" class="restore-btn">Restore Default Triggers</button>
-            </div>
-          </div>
+    </div>
+
+    <div class="tts-add-user-section">
+      <h4>Add TTS User</h4>
+      <form id="tts-add-form" class="settings-form">
+        <div class="tts-add-inputs">
+          <input type="text" id="tts-username" placeholder="Enter username for TTS" required>
+          <select id="tts-voice-select" required>
+            <option value="" disabled selected>-- Select Voice --</option>
+          </select>
+          <button type="submit" id="add-user-btn" class="control-btn add-btn">Add User</button>
         </div>
-      </div>
-      <!-- Custom Commands Modal -->
-      <div id="custom-commands-modal" class="modal">
-        <div class="modal-content">
-          <h4 class="custom-command-header">Custom Commands</h4>
-          <button id="add-custom-command-btn" class="add-custom-command-btn">Add New Command</button>
-          <form id="custom-commands-form">
-            <div id="custom-commands-list"></div>
-            <div class="button-group">
-              <button type="button" id="save-custom-commands" class="control-btn add-btn">Save Commands</button>
-              <button type="button" id="close-custom-commands" class="control-btn clear-btn">Close</button>
-            </div>
-          </form>
-        </div>
-      </div>
-      <!-- Scheduled Events Modal -->
-      <div id="scheduled-events-modal" class="modal">
-        <div class="modal-content">
-          <h4>Scheduled Events</h4>
-          <div id="scheduled-unsaved-warning" class="unsaved-warning" style="display:none;">You have unsaved changes. Click close again to cancel changes.</div>
-          <button id="add-scheduled-event-btn" class="add-scheduled-event-btn">Add New Event</button>
-          <div id="scheduled-events-list"></div>
-          <div class="button-group">
-            <button type="button" id="save-scheduled-events" class="control-btn add-btn">Save Events</button>
-            <button type="button" id="close-scheduled-events" class="control-btn clear-btn">Close</button>
-          </div>
-        </div>
-      </div>
-      <!-- Export/Import Settings Modal -->
-      <div id="export-import-modal" class="modal">
-        <div class="modal-content">
-          <h4>Export / Import Settings</h4>
-          <div class="center">
-            <button id="download-export-btn" class="control-btn add-btn">Download Settings JSON</button>
-          </div>
-          <div class="center">
-            <input type="file" id="import-settings-file" accept=".json">
-          </div>
-          <div class="right">
-            <button id="close-export-import-btn" class="control-btn clear-btn">Close</button>
-          </div>
-        </div>
-      </div>
-      <!-- Mute Settings Modal -->
-      <div id="mute-settings-modal" class="modal">
-        <div class="modal-content">
-          <h4>Mute Settings</h4>
-          <div class="settings-form">
-            <label class="checkbox-label">
-              Allow Self Mute Commands:
-              <input type="checkbox" id="allow-self-mute-toggle">
-            </label>
-            <label>
-              Default Unmute Commands (comma separated):
-              <input type="text" id="self-unmute-commands" placeholder="e.g., !tts, !tts-on, !unmute, bonesd3TS">
-            </label>
-            <label>
-              Default Mute Commands (comma separated):
-              <input type="text" id="self-mute-commands" placeholder="e.g., !tts-off, !mute, bonesd3TO">
-            </label>
-            <div class="button-group">
-              <button id="save-mute-settings" class="control-btn add-btn">Save Settings</button>
-              <button id="close-mute-settings" class="control-btn clear-btn">Close</button>
-            </div>
-          </div>
-        </div>
-      </div>
-      <!-- Voice Settings Modal -->
-      <div id="voice-settings-modal" class="modal">
-        <div class="modal-content">
-          <h4>Voice Settings</h4>
-          <div class="settings-form">
-            <label class="checkbox-label">
-              Allow Voice Pick Command:
-              <input type="checkbox" id="voice-pick-toggle">
-            </label>
-            <label>
-              Blacklisted Voices:
-              <div id="blacklisted-voices" class="blacklist-container"></div>
-            </label>
-            <div class="button-group">
-              <button id="save-voice-settings" class="control-btn add-btn">Save Settings</button>
-              <button id="close-voice-settings" class="control-btn clear-btn">Close</button>
-            </div>
-          </div>
-        </div>
-      </div>
-      <!-- Image Generation Settings Modal -->
-      <div id="image-gen-settings-modal" class="modal">
-        <div class="modal-content">
-          <h4>Image Generation Settings</h4>
-          <div id="image-gen-unsaved-warning" class="unsaved-warning" style="display:none;">You have unsaved changes. Click outside again to cancel.</div>
-          <div class="settings-form">
-            <label class="checkbox-label">
-              Enable "!image" Command:
-              <input type="checkbox" id="image-gen-enabled">
-            </label>
-            <label>
-              Cooldown (seconds):
-              <input type="number" id="image-gen-cooldown" min="0" value="30">
-            </label>
-            <label>
-              Command Trigger:
-              <input type="text" id="image-gen-trigger" placeholder="e.g., !image">
-            </label>
-            <label>
-              Max Gallery Size:
-              <input type="number" id="image-gen-max-gallery" min="1" value="20">
-            </label>
-            <div class="button-group">
-              <button id="save-image-gen-settings" class="control-btn add-btn">Save Settings</button>
-            </div>
-          </div>
-        </div>
-      </div>
-      <!-- TTS Add User Form -->
-      <form id="tts-add-form" style="display: flex; flex-direction: column; gap: 10px;">
-        <div style="display: flex; gap: 10px; align-items: center;">
-          <input type="text" id="tts-username" placeholder="Enter username for TTS" style="flex:1;">
-          <button type="submit" id="add-user-btn" class="add-user-btn control-btn add-btn">Add User</button>
-        </div>
-        <select id="tts-voice-select" style="width: 100%; max-width: 100%; box-sizing: border-box;"></select>
       </form>
-      <div class="tts-user-list" id="tts-users"></div>
-      <!-- TTS and Queue Status -->
-      <div class="queue-section">
-        <h4>TTS Status</h4>
+    </div>
+
+    <div class="tts-user-list-section">
+      <h4>TTS User List</h4>
+      <div class="tts-user-list" id="tts-users">
+        <li class="no-users">No users added for TTS yet.</li>
+      </div>
+    </div>
+
+    <div class="queue-section">
+      <h4>TTS Status & Queue</h4>
+      <div class="status-queue-container">
         <div class="current-section">
-          <h5>Last Read</h5>
+          <h5>Now Reading</h5>
           <div id="tts-current-display" class="current-display">
-            <div class="empty-current">Nothing read yet</div>
+            <div class="empty-current">Nothing being read</div>
           </div>
         </div>
         <div class="queue-container">
-          <h5>TTS Queue</h5>
+          <h5>Upcoming Queue</h5>
           <div id="tts-queue-display" class="queue-display">
             <div class="empty-queue">Queue is empty</div>
           </div>
         </div>
       </div>
     </div>
-    <div id="chat-box"></div>
-    <div class="gallery-controls">
-      <h3>Image Gallery</h3>
-      <button id="clear-gallery-btn" class="control-btn clear-btn">Clear Gallery</button>
+
+    <div id="chat-box-container">
+      <h4>Live Chat</h4>
+      <div id="chat-box">
+      </div>
     </div>
-    <div id="image-gallery-box">
-      <div class="empty-gallery">Gallery is empty. Use !image &lt;prompt&gt; to generate images.</div>
+
+    <div class="gallery-section">
+      <div class="gallery-controls">
+        <h3>Image Gallery</h3>
+        <button id="clear-gallery-btn" class="control-btn clear-btn">Clear Gallery</button>
+      </div>
+      <div id="image-gallery-box">
+        <div class="empty-gallery">Gallery is empty. Use !image &lt;prompt&gt; to generate images.</div>
+      </div>
+    </div>
+
+    <div id="gamble-settings-modal" class="modal">
+      <div class="modal-content">
+        <span class="close-btn" onclick="this.parentElement.parentElement.style.display='none'">&times;</span>
+        <h4>Gamble Voice Settings</h4>
+        <div id="gamble-unsaved-warning" class="unsaved-warning" style="display:none;"></div>
+        <form class="settings-form">
+          <label class="checkbox-label">
+            <input type="checkbox" id="gamble-enabled">
+            Enable Gamble Voice
+          </label>
+          <label>
+            Cooldown (seconds):
+            <input type="number" id="gamble-cooldown" min="0" value="0">
+          </label>
+          <label>
+            Command Triggers (comma separated):
+            <input type="text" id="gamble-triggers" placeholder="e.g., !gamblevoice, !gv">
+          </label>
+          <div class="button-group">
+            <button type="button" id="restore-gamble-defaults" class="control-btn">Restore Defaults</button>
+            <button type="button" id="save-gamble-settings" class="control-btn add-btn">Save Settings</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div id="custom-commands-modal" class="modal">
+      <div class="modal-content">
+        <span id="close-custom-commands" class="close-btn">&times;</span>
+        <h4>Custom Commands</h4>
+        <button id="add-custom-command-btn" class="control-btn add-btn" style="margin-bottom: 15px;">Add New Command</button>
+        <form id="custom-commands-form">
+          <div id="custom-commands-list">
+          </div>
+          <div class="button-group">
+            <button type="button" id="save-custom-commands" class="control-btn add-btn">Save Commands</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div id="scheduled-events-modal" class="modal">
+      <div class="modal-content">
+        <span id="close-scheduled-events" class="close-btn">&times;</span>
+        <h4>Scheduled Events</h4>
+        <div id="scheduled-unsaved-warning" class="unsaved-warning" style="display:none;"></div>
+        <button id="add-scheduled-event-btn" class="control-btn add-btn" style="margin-bottom: 15px;">Add New Event</button>
+        <div id="scheduled-events-list">
+        </div>
+        <div class="button-group">
+          <button type="button" id="save-scheduled-events" class="control-btn add-btn">Save Events</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="export-import-modal" class="modal">
+      <div class="modal-content">
+        <span id="close-export-import-btn" class="close-btn">&times;</span>
+        <h4>Export / Import Settings</h4>
+        <div class="center">
+          <button id="download-export-btn" class="control-btn add-btn">Download Settings JSON</button>
+        </div>
+        <div class="center settings-form" style="margin-top: 15px;">
+          <label>
+            Import Settings File (.json):
+            <input type="file" id="import-settings-file" accept=".json" style="margin-top: 5px;">
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div id="mute-settings-modal" class="modal">
+      <div class="modal-content">
+        <span id="close-mute-settings" class="close-btn">&times;</span>
+        <h4>Mute Settings</h4>
+        <form class="settings-form">
+          <label class="checkbox-label">
+            <input type="checkbox" id="allow-self-mute-toggle">
+            Allow Users to Mute/Unmute Themselves
+          </label>
+          <label>
+            Unmute Commands (comma separated, case-insensitive):
+            <input type="text" id="self-unmute-commands" placeholder="e.g., !tts, !unmute">
+          </label>
+          <label>
+            Mute Commands (comma separated, case-insensitive):
+            <input type="text" id="self-mute-commands" placeholder="e.g., !tts-off, !mute">
+          </label>
+          <div class="button-group">
+            <button type="button" id="save-mute-settings" class="control-btn add-btn">Save Settings</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div id="voice-settings-modal" class="modal">
+      <div class="modal-content">
+        <span id="close-voice-settings" class="close-btn">&times;</span>
+        <h4>Voice Settings</h4>
+        <form class="settings-form">
+          <label class="checkbox-label">
+            <input type="checkbox" id="voice-pick-toggle">
+            Allow "!pickvoice" Command
+          </label>
+          <label>
+            "!pickvoice" Command Trigger:
+            <input type="text" id="pick-voice-trigger" placeholder="e.g., !pickvoice">
+          </label>
+          <label>
+            Blacklisted Voices (will not be used for random rolls or !pickvoice):
+            <div id="blacklisted-voices" class="blacklist-container">
+            </div>
+          </label>
+          <div class="button-group">
+            <button type="button" id="save-voice-settings" class="control-btn add-btn">Save Settings</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div id="image-gen-settings-modal" class="modal">
+      <div class="modal-content">
+        <span class="close-btn" onclick="this.parentElement.parentElement.style.display='none'">&times;</span>
+        <h4>Image Generation Settings</h4>
+        <div id="image-gen-unsaved-warning" class="unsaved-warning" style="display:none;"></div>
+        <form class="settings-form">
+          <label class="checkbox-label">
+            <input type="checkbox" id="image-gen-enabled">
+            Enable Image Command
+          </label>
+          <label>
+            Cooldown (seconds):
+            <input type="number" id="image-gen-cooldown" min="0" value="30">
+          </label>
+          <label>
+            Command Trigger:
+            <input type="text" id="image-gen-trigger" placeholder="e.g., !image">
+          </label>
+          <label>
+            Max Gallery Size (number of images stored):
+            <input type="number" id="image-gen-max-gallery" min="1" value="20">
+          </label>
+          <div class="button-group">
+            <button type="button" id="save-image-gen-settings" class="control-btn add-btn">Save Settings</button>
+          </div>
+        </form>
+      </div>
     </div>
   </div>
+
   <script src="tmi.js"></script>
   <script type="module" src="chatUtils.js"></script>
   <script type="module" src="ttsManager.js"></script>
   <script type="module" src="gambleManager.js"></script>
-  <script type="module" src="chatUI.js"></script>
-  <script type="module" src="chatClient.js"></script>
-  <script type="module" src="customCommands.js"></script>
-  <script type="module" src="exportImport.js"></script>
-  <script type="module" src="scheduledEvents.js"></script>
   <script type="module" src="muteSettings.js"></script>
   <script type="module" src="voiceSettings.js"></script>
+  <script type="module" src="chatUI.js"></script>
+  <script type="module" src="customCommands.js"></script>
+  <script type="module" src="scheduledEvents.js"></script>
   <script type="module" src="imageGenManager.js"></script>
   <script type="module" src="galleryDisplay.js"></script>
+  <script type="module" src="exportImport.js"></script>
+  <script type="module" src="chatClient.js"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516" integrity="sha512-8DS7rgIrAmghBFwoOTujcf6D9rXvH8xm8JQ1Ja01h9QX8EzXldiszufYa4IFfKdLUKTTrnSFXLDkUEOTrZQ8Qg==" data-cf-beacon='{"version":"2024.11.0","token":"4c6229722a6346bc8eb5cb0e5eae5d41","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 </body>
 </html>

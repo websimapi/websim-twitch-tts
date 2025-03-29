@@ -1,105 +1,134 @@
+import * as ttsManager from './ttsManager.js'; 
+import * as chatUtils from './chatUtils.js'; 
+
 (function() {
-  const chatBox = document.getElementById('chat-box');
+    const chatBox = document.getElementById('chat-box');
 
-  function addChatMessage(username, message, tags) {
-    const messageDiv = document.createElement('div');
-    messageDiv.className = 'chat-message';
-    const timestamp = document.createElement('span');
-    timestamp.className = 'timestamp';
-    timestamp.textContent = new Date().toLocaleTimeString();
-    messageDiv.appendChild(timestamp);
-    const usernameSpan = document.createElement('span');
-    usernameSpan.className = 'username';
-    usernameSpan.textContent = username;
-    
-    const ttsUsers = window.ttsManager.getTTSState().users;
-    if (!ttsUsers.has(username.toLowerCase())) {
-      const autoAddEnabled = localStorage.getItem('autoAddUserEnabled') === 'false' ? false : true;
-      if (autoAddEnabled) {
-        const voices = window.speechSynthesis.getVoices();
-        if (voices.length) {
-          const randomVoice = voices[Math.floor(Math.random() * voices.length)].name;
-          window.ttsManager.addTTSUser(username.toLowerCase(), randomVoice);
-        }
-      } else {
-        usernameSpan.classList.add('clickable');
-        usernameSpan.title = 'Click to add TTS for this user';
-        usernameSpan.addEventListener('click', function() {
-          const voices = window.speechSynthesis.getVoices();
-          if (voices.length) {
-            const randomVoice = voices[Math.floor(Math.random() * voices.length)].name;
-            window.ttsManager.addTTSUser(username.toLowerCase(), randomVoice);
-          }
-        });
-      }
-    }
-    messageDiv.appendChild(usernameSpan);
-    const colonSpan = document.createElement('span');
-    colonSpan.textContent = ': ';
-    messageDiv.appendChild(colonSpan);
-    const messageContent = document.createElement('span');
-    
-    const urlRegex = /(https?:\/\/[^\s]+)/gi;
-    const urlMatches = [...message.matchAll(urlRegex)];
-    
-    if (urlMatches.length > 0) {
-      let lastIndex = 0;
-      for (const match of urlMatches) {
-        const url = match[0];
-        const beforeText = message.substring(lastIndex, match.index);
-        if (beforeText) {
-          const span = document.createElement('span');
-          span.innerHTML = window.chatUtils.censorBadWordsHtml(beforeText);
-          messageContent.appendChild(span);
-        }
-        if (window.chatUtils.isMusicServiceUrl(url)) {
-          const linkElement = window.chatUtils.createLinkElement(url, '');
-          messageContent.appendChild(linkElement);
-          window.chatUtils.getMediaInfo(url).then(function(metadata) {
-            if (metadata) {
-              linkElement.lastChild.textContent = ` (${metadata})`;
+    function addChatMessage(username, message, tags) {
+         if (!chatBox) return;
+
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'chat-message';
+
+        // Timestamp
+        const timestamp = document.createElement('span');
+        timestamp.className = 'timestamp';
+        timestamp.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }); 
+        messageDiv.appendChild(timestamp);
+
+        // Username Span
+        const usernameSpan = document.createElement('span');
+        usernameSpan.className = 'username';
+        usernameSpan.textContent = username;
+         // Add color based on tags if available (optional)
+         if (tags && tags.color) {
+             usernameSpan.style.color = tags.color;
+         } else {
+              usernameSpan.style.color = '#6441A4'; 
+         }
+
+        // Click-to-add TTS logic
+        const ttsUsers = ttsManager.getTTSState().users;
+        const lowerUsername = username.toLowerCase();
+        if (!ttsUsers.has(lowerUsername)) {
+            const autoAddEnabled = localStorage.getItem('autoAddUserEnabled') !== 'false'; 
+            if (!autoAddEnabled) {
+                usernameSpan.classList.add('clickable');
+                usernameSpan.title = 'Click to add TTS for this user';
+                usernameSpan.addEventListener('click', function handleAddClick() {
+                    ttsManager.addTTSUser(lowerUsername);
+                    usernameSpan.classList.remove('clickable');
+                    usernameSpan.title = '';
+                    usernameSpan.removeEventListener('click', handleAddClick);
+                    window.chatUI.addSystemMessage(`Added ${username} to TTS.`);
+                }, { once: true }); 
             }
-          });
-        } else {
-          const linkText = document.createTextNode(url);
-          messageContent.appendChild(linkText);
         }
-        lastIndex = match.index + url.length;
-      }
-      const afterText = message.substring(lastIndex);
-      if (afterText) {
-        const span = document.createElement('span');
-        span.innerHTML = window.chatUtils.censorBadWordsHtml(afterText);
-        messageContent.appendChild(span);
-      }
-    } else {
-      messageContent.innerHTML = window.chatUtils.censorBadWordsHtml(message);
-    }
-    messageDiv.appendChild(messageContent);
-    chatBox.appendChild(messageDiv);
-    chatBox.scrollTop = chatBox.scrollHeight;
-    while (chatBox.children.length > 500) {
-      chatBox.removeChild(chatBox.firstChild);
-    }
-  }
-  
-  function addSystemMessage(message) {
-    const messageDiv = document.createElement('div');
-    messageDiv.className = 'chat-message system-message';
-    const timestamp = document.createElement('span');
-    timestamp.className = 'timestamp';
-    timestamp.textContent = new Date().toLocaleTimeString();
-    messageDiv.appendChild(timestamp);
-    const systemSpan = document.createElement('span');
-    systemSpan.className = 'system-text';
-    systemSpan.textContent = message;
-    messageDiv.appendChild(systemSpan);
-    chatBox.appendChild(messageDiv);
-    chatBox.scrollTop = chatBox.scrollHeight;
-  }
+        messageDiv.appendChild(usernameSpan);
 
-  window.chatUI = {
-    addChatMessage: addChatMessage,
-    addSystemMessage: addSystemMessage
-  };
+        // Colon separator
+        const colonSpan = document.createElement('span');
+        colonSpan.textContent = ': ';
+        messageDiv.appendChild(colonSpan);
+
+        // Message Content Span 
+        const messageContent = document.createElement('span');
+        messageContent.className = 'message-text'; 
+
+        // --- Link and Censoring Logic ---
+        const urlRegex = /(https?:\/\/[^\s]+)/gi;
+        let lastIndex = 0;
+        let match;
+
+        while ((match = urlRegex.exec(message)) !== null) {
+             const beforeText = message.substring(lastIndex, match.index);
+             if (beforeText) {
+                 const span = document.createElement('span');
+                 span.innerHTML = chatUtils.censorBadWordsHtml(beforeText);
+                 messageContent.appendChild(span);
+             }
+
+             const url = match[0];
+             const linkElement = chatUtils.createLinkElement(url, ''); 
+             messageContent.appendChild(linkElement);
+
+             lastIndex = match.index + url.length;
+        }
+
+        const afterText = message.substring(lastIndex);
+        if (afterText) {
+             const span = document.createElement('span');
+             span.innerHTML = chatUtils.censorBadWordsHtml(afterText);
+             messageContent.appendChild(span);
+        }
+        // --- End Link/Censoring ---
+
+        messageDiv.appendChild(messageContent);
+
+        const shouldScroll = chatBox.scrollTop + chatBox.clientHeight >= chatBox.scrollHeight - 20; 
+
+        chatBox.appendChild(messageDiv);
+
+        if (shouldScroll) {
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        while (chatBox.children.length > 500) { 
+            chatBox.removeChild(chatBox.firstChild);
+        }
+    }
+
+    function addSystemMessage(message) {
+         if (!chatBox) return;
+
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'chat-message system-message'; 
+
+        const timestamp = document.createElement('span');
+        timestamp.className = 'timestamp';
+        timestamp.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        messageDiv.appendChild(timestamp);
+
+        const systemSpan = document.createElement('span');
+        systemSpan.className = 'system-text';
+        systemSpan.textContent = message;
+        messageDiv.appendChild(systemSpan);
+
+        const shouldScroll = chatBox.scrollTop + chatBox.clientHeight >= chatBox.scrollHeight - 20;
+
+        chatBox.appendChild(messageDiv);
+
+        if (shouldScroll) {
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+        while (chatBox.children.length > 500) {
+             chatBox.removeChild(chatBox.firstChild);
+        }
+    }
+
+    window.chatUI = {
+        addChatMessage: addChatMessage,
+        addSystemMessage: addSystemMessage
+    };
+
 })();

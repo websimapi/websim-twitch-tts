@@ -1,169 +1,232 @@
+import * as chatUI from './chatUI.js'; 
+import * as ttsManager from './ttsManager.js'; 
+
 (function() {
-  const defaultGambleTriggers = ["!gamblevoice", "!gv", "bonesd3TC"];
-  const gambleState = {
-    cooldown: parseInt(localStorage.getItem('gambleCooldown')) || 0,
-    enabled: localStorage.getItem('gambleEnabled') === 'false' ? false : true,
-    lastUse: new Map()
-  };
-  let gambleTriggers = JSON.parse(localStorage.getItem('gambleTriggers') || JSON.stringify(defaultGambleTriggers));
-
-  const gambleSettingsBtn = document.getElementById('gamble-settings-btn');
-  const gambleSettingsModal = document.getElementById('gamble-settings-modal');
-  const gambleCooldownInput = document.getElementById('gamble-cooldown');
-  const gambleEnabledCheckbox = document.getElementById('gamble-enabled');
-  const gambleTriggersInput = document.getElementById('gamble-triggers');
-  const saveGambleSettingsBtn = document.getElementById('save-gamble-settings');
-  const restoreGambleDefaultsBtn = document.getElementById('restore-gamble-defaults');
-  const unsavedWarning = document.getElementById('gamble-unsaved-warning');
-
-  // Variables to track unsaved changes for gamble settings
-  let initialGambleSettings = {};
-  let unsavedPrompted = false;
-
-  // Helper: Update Gamble Settings button style based on enabled status
-  function updateGambleSettingsButton() {
-    if (!gambleSettingsBtn || !gambleEnabledCheckbox) return;
-    if (gambleEnabledCheckbox.checked) {
-      gambleSettingsBtn.classList.remove('off');
-      gambleSettingsBtn.style.backgroundColor = '';
-    } else {
-      gambleSettingsBtn.classList.add('off');
-      gambleSettingsBtn.style.backgroundColor = '#6c757d';
-    }
-  }
-
-  // Set initial values in the modal based on stored settings
-  function loadGambleSettingsIntoModal() {
-    if (gambleCooldownInput) {
-      gambleCooldownInput.value = gambleState.cooldown;
-    }
-    if (gambleEnabledCheckbox) {
-      gambleEnabledCheckbox.checked = gambleState.enabled;
-    }
-    if (gambleTriggersInput) {
-      gambleTriggersInput.value = gambleTriggers.join(', ');
-    }
-    // Record initial state for later comparison
-    initialGambleSettings = {
-      cooldown: gambleCooldownInput.value,
-      enabled: gambleEnabledCheckbox.checked,
-      triggers: gambleTriggersInput.value
+    const defaultGambleTriggers = ["!gamblevoice", "!gv", "bonesd3TC"];
+    const gambleState = {
+        cooldown: 0,
+        enabled: true,
+        lastUse: new Map()
     };
-    unsavedPrompted = false;
-    unsavedWarning.style.display = 'none';
-  }
+    let gambleTriggers = []; 
 
-  // Compare current modal values with initial values
-  function hasUnsavedChanges() {
-    return (
-      gambleCooldownInput.value !== initialGambleSettings.cooldown ||
-      gambleEnabledCheckbox.checked !== initialGambleSettings.enabled ||
-      gambleTriggersInput.value !== initialGambleSettings.triggers
-    );
-  }
+    const gambleSettingsBtn = document.getElementById('gamble-settings-btn');
+    const gambleSettingsModal = document.getElementById('gamble-settings-modal');
+    const gambleCooldownInput = document.getElementById('gamble-cooldown');
+    const gambleEnabledCheckbox = document.getElementById('gamble-enabled');
+    const gambleTriggersInput = document.getElementById('gamble-triggers');
+    const saveGambleSettingsBtn = document.getElementById('save-gamble-settings');
+    const restoreGambleDefaultsBtn = document.getElementById('restore-gamble-defaults'); 
+    const unsavedWarning = document.getElementById('gamble-unsaved-warning');
 
-  // Open modal and load settings
-  gambleSettingsBtn.addEventListener('click', function() {
-    loadGambleSettingsIntoModal();
-    gambleSettingsModal.style.display = 'block';
-  });
+    let initialGambleSettings = {};
+    let unsavedPrompted = false;
 
-  // Save settings from modal
-  saveGambleSettingsBtn.addEventListener('click', function() {
-    gambleState.cooldown = parseInt(gambleCooldownInput.value) || 0;
-    gambleState.enabled = gambleEnabledCheckbox.checked;
-    gambleTriggers = gambleTriggersInput.value.split(',')
-      .map(trigger => trigger.trim())
-      .filter(trigger => trigger);
-    localStorage.setItem('gambleCooldown', gambleState.cooldown);
-    localStorage.setItem('gambleEnabled', gambleState.enabled);
-    localStorage.setItem('gambleTriggers', JSON.stringify(gambleTriggers));
-    gambleSettingsModal.style.display = 'none';
-    updateGambleSettingsButton();
-  });
+    function loadGambleSettings() {
+         const storedCooldown = localStorage.getItem('gambleCooldown');
+         const storedEnabled = localStorage.getItem('gambleEnabled');
+         const storedTriggers = localStorage.getItem('gambleTriggers');
 
-  // Restore default triggers for gamble settings
-  restoreGambleDefaultsBtn.addEventListener('click', function() {
-    gambleTriggers = [...defaultGambleTriggers];
-    gambleTriggersInput.value = gambleTriggers.join(', ');
-    localStorage.setItem('gambleTriggers', JSON.stringify(gambleTriggers));
-  });
+         gambleState.cooldown = storedCooldown !== null ? parseInt(storedCooldown) : 0;
+         gambleState.enabled = storedEnabled !== null ? (storedEnabled === 'true') : true;
+         try {
+             gambleTriggers = storedTriggers ? JSON.parse(storedTriggers) : [...defaultGambleTriggers];
+         } catch (e) {
+             console.error("Error parsing gamble triggers, using defaults.", e);
+             gambleTriggers = [...defaultGambleTriggers];
+         }
 
-  // Enhanced modal close behavior: clicking outside the modal content for Gamble Settings
-  window.addEventListener('click', function(e) {
-    if (e.target === gambleSettingsModal) {
-      if (hasUnsavedChanges()) {
-        if (!unsavedPrompted) {
-          unsavedWarning.textContent = "You have unsaved changes. Click outside again to cancel.";
-          unsavedWarning.style.display = 'block';
-          unsavedPrompted = true;
+         updateGambleSettingsButton(); 
+    }
+
+    function updateGambleSettingsButton() {
+        if (!gambleSettingsBtn) return;
+        if (gambleState.enabled) {
+            gambleSettingsBtn.classList.remove('off');
+            gambleSettingsBtn.style.backgroundColor = '';
         } else {
-          // Revert the unsaved changes by resetting modal values to initial state
-          gambleCooldownInput.value = initialGambleSettings.cooldown;
-          gambleEnabledCheckbox.checked = initialGambleSettings.enabled;
-          gambleTriggersInput.value = initialGambleSettings.triggers;
-          unsavedWarning.style.display = 'none';
-          unsavedPrompted = false;
-          gambleSettingsModal.style.display = 'none';
+            gambleSettingsBtn.classList.add('off');
+            gambleSettingsBtn.style.backgroundColor = '#6c757d';
         }
-      } else {
+    }
+
+    function loadGambleSettingsIntoModal() {
+        if (!gambleCooldownInput || !gambleEnabledCheckbox || !gambleTriggersInput || !unsavedWarning) return;
+
+        gambleCooldownInput.value = gambleState.cooldown;
+        gambleEnabledCheckbox.checked = gambleState.enabled;
+        gambleTriggersInput.value = gambleTriggers.join(', ');
+
+        initialGambleSettings = {
+            cooldown: gambleCooldownInput.value,
+            enabled: gambleEnabledCheckbox.checked,
+            triggers: gambleTriggersInput.value
+        };
+        unsavedPrompted = false;
+        unsavedWarning.style.display = 'none';
+    }
+
+    function hasUnsavedChanges() {
+         if (!gambleCooldownInput || !gambleEnabledCheckbox || !gambleTriggersInput) return false;
+        return (
+            gambleCooldownInput.value !== initialGambleSettings.cooldown ||
+            gambleEnabledCheckbox.checked !== initialGambleSettings.enabled ||
+            gambleTriggersInput.value !== initialGambleSettings.triggers
+        );
+    }
+
+    function saveSettingsFromModal() {
+        if (!gambleCooldownInput || !gambleEnabledCheckbox || !gambleTriggersInput || !gambleSettingsModal) return;
+
+        gambleState.cooldown = parseInt(gambleCooldownInput.value) || 0;
+        gambleState.enabled = gambleEnabledCheckbox.checked;
+        
+        gambleTriggers = gambleTriggersInput.value
+            .split(',')
+            .map(trigger => trigger.trim().toLowerCase())
+            .filter(trigger => trigger);
+
+        if (gambleTriggers.length === 0) {
+             gambleTriggers = [...defaultGambleTriggers].map(t => t.toLowerCase());
+             gambleTriggersInput.value = gambleTriggers.join(', '); 
+             alert("No valid triggers entered, restored defaults.");
+        }
+
+        localStorage.setItem('gambleCooldown', gambleState.cooldown);
+        localStorage.setItem('gambleEnabled', gambleState.enabled);
+        localStorage.setItem('gambleTriggers', JSON.stringify(gambleTriggers));
+
+        updateGambleSettingsButton(); 
         gambleSettingsModal.style.display = 'none';
-      }
     }
-  });
 
-  function isGambleTrigger(message) {
-    return gambleTriggers.some(trigger => message.startsWith(trigger.toLowerCase()));
-  }
-
-  function isOnGambleCooldown(username) {
-    if (gambleState.cooldown === 0) return false;
-    const lastUse = gambleState.lastUse.get(username);
-    if (!lastUse) return false;
-    const timeSinceLastUse = Date.now() - lastUse;
-    return timeSinceLastUse < (gambleState.cooldown * 1000);
-  }
-
-  function handleGambleCommand(username, message) {
-    username = username.toLowerCase();
-    if (!gambleState.enabled) {
-      window.chatUI.addSystemMessage("Gamble Voice command is currently disabled");
-      window.ttsManager.queueTTSMessage("Gamble Voice command is currently disabled", "System");
-      return true;
+    if (gambleSettingsBtn) {
+        gambleSettingsBtn.addEventListener('click', function() {
+            loadGambleSettingsIntoModal(); 
+            if (gambleSettingsModal) gambleSettingsModal.style.display = 'block';
+        });
     }
-    if (isOnGambleCooldown(username)) {
-      const lastUse = gambleState.lastUse.get(username);
-      const remainingTime = Math.ceil((gambleState.cooldown * 1000 - (Date.now() - lastUse)) / 1000);
-      window.chatUI.addSystemMessage(`${username} must wait ${remainingTime} seconds before using gamble voice again`);
-      return true;
-    }
-    const voices = window.speechSynthesis.getVoices();
-    const currentVoice = window.ttsManager.getTTSState().users.get(username);
-    let newVoice;
-    if (voices.length) {
-      do {
-        newVoice = voices[Math.floor(Math.random() * voices.length)].name;
-      } while (newVoice === currentVoice && voices.length > 1);
-    }
-    window.ttsManager.updateUserVoice(username, newVoice);
-    gambleState.lastUse.set(username, Date.now());
-    window.chatUI.addSystemMessage(`${username} rolled and got a new voice: ${newVoice}`);
-    window.ttsManager.queueTTSMessage(`${username} rolled for a new voice`, 'System');
 
-    const triggerMatched = gambleTriggers.find(trigger => message.toLowerCase().startsWith(trigger.toLowerCase()));
-    const additionalText = message.slice(triggerMatched.length).trim();
-    if (additionalText) {
-      window.ttsManager.queueTTSMessage(additionalText, username);
+    if (saveGambleSettingsBtn) {
+        saveGambleSettingsBtn.addEventListener('click', saveSettingsFromModal);
     }
-    return true;
-  }
 
-  window.gambleManager = {
-    isGambleTrigger: isGambleTrigger,
-    handleGambleCommand: handleGambleCommand,
-    isOnGambleCooldown: isOnGambleCooldown
-  };
+    if (restoreGambleDefaultsBtn && gambleTriggersInput) {
+        restoreGambleDefaultsBtn.addEventListener('click', function() {
+            gambleTriggersInput.value = defaultGambleTriggers.join(', ');
+        });
+    }
 
-  // Immediately update the Gamble Settings button based on stored value on page load
-  updateGambleSettingsButton();
+    window.addEventListener('click', function(e) {
+        if (gambleSettingsModal && e.target === gambleSettingsModal) {
+            if (hasUnsavedChanges()) {
+                if (!unsavedPrompted && unsavedWarning) {
+                    unsavedWarning.textContent = "You have unsaved changes. Click outside again to close without saving.";
+                    unsavedWarning.style.display = 'block';
+                    unsavedPrompted = true;
+                } else {
+                    loadGambleSettingsIntoModal(); 
+                    gambleSettingsModal.style.display = 'none';
+                }
+            } else {
+                gambleSettingsModal.style.display = 'none';
+            }
+        }
+    });
+
+    const closeBtn = gambleSettingsModal ? gambleSettingsModal.querySelector('.close-btn') : null; 
+    if (closeBtn) {
+         closeBtn.addEventListener('click', () => {
+             if (hasUnsavedChanges() && confirm("You have unsaved changes. Close anyway?")) {
+                  loadGambleSettingsIntoModal(); 
+                  gambleSettingsModal.style.display = 'none';
+             } else if (!hasUnsavedChanges()) {
+                  gambleSettingsModal.style.display = 'none';
+             }
+         });
+     }
+
+    function isGambleTrigger(message) {
+        const lowerMessage = message.toLowerCase().trim();
+        return gambleTriggers.some(trigger => lowerMessage.startsWith(trigger));
+    }
+
+    function isOnGambleCooldown(username) {
+        if (gambleState.cooldown <= 0) return false; 
+        const lastUseTimestamp = gambleState.lastUse.get(username.toLowerCase());
+        if (!lastUseTimestamp) return false; 
+        const timeSinceLastUse = Date.now() - lastUseTimestamp;
+        return timeSinceLastUse < (gambleState.cooldown * 1000);
+    }
+
+    function handleGambleCommand(username, message) {
+        const lowerUsername = username.toLowerCase();
+
+        if (!gambleState.enabled) {
+            return false; 
+        }
+
+        if (isOnGambleCooldown(lowerUsername)) {
+            const lastUseTimestamp = gambleState.lastUse.get(lowerUsername);
+            const remainingTime = Math.ceil((gambleState.cooldown * 1000 - (Date.now() - lastUseTimestamp)) / 1000);
+            chatUI.addSystemMessage(`${username} must wait ${remainingTime}s before using gamble voice again.`);
+            return true; 
+        }
+
+        let allowedVoices = [];
+        if (window.voiceSettings && window.voiceSettings.getAllowedVoices) {
+             allowedVoices = window.voiceSettings.getAllowedVoices();
+         } else {
+             allowedVoices = window.speechSynthesis.getVoices(); 
+         }
+
+        if (allowedVoices.length === 0) {
+            chatUI.addSystemMessage("No voices available to gamble.");
+            return true; 
+        }
+
+        const currentUserVoiceName = ttsManager.getTTSState().users.get(lowerUsername);
+        let newVoice;
+
+        if (allowedVoices.length <= 1 && currentUserVoiceName && allowedVoices[0].name === currentUserVoiceName) {
+             chatUI.addSystemMessage(`${username} is already using the only available voice.`);
+             gambleState.lastUse.set(lowerUsername, Date.now());
+             return true; 
+         }
+
+        let attempts = 0;
+        do {
+            newVoice = allowedVoices[Math.floor(Math.random() * allowedVoices.length)];
+            attempts++;
+        } while (newVoice.name === currentUserVoiceName && allowedVoices.length > 1 && attempts < allowedVoices.length * 2); 
+
+        ttsManager.updateUserVoice(lowerUsername, newVoice.name);
+        gambleState.lastUse.set(lowerUsername, Date.now()); 
+
+        chatUI.addSystemMessage(`${username} rolled and got a new voice: ${newVoice.name}`);
+
+        const lowerMessage = message.toLowerCase().trim();
+        const triggerMatched = gambleTriggers.find(trigger => lowerMessage.startsWith(trigger));
+        const additionalText = message.slice(triggerMatched.length).trim();
+
+        if (additionalText && !ttsManager.isUserMuted(lowerUsername)) {
+             ttsManager.queueTTSMessage(additionalText, lowerUsername);
+         } 
+
+        return true; 
+    }
+
+    window.gambleManager = {
+        loadGambleSettings: loadGambleSettings, 
+        loadGambleSettingsIntoModal: loadGambleSettingsIntoModal, 
+        isGambleTrigger: isGambleTrigger,
+        handleGambleCommand: handleGambleCommand,
+        isOnGambleCooldown: isOnGambleCooldown,
+        getGambleTriggers: () => [...gambleTriggers] 
+    };
+
+    document.addEventListener('DOMContentLoaded', () => {
+         loadGambleSettings(); 
+    });
+
 })();

@@ -1,134 +1,169 @@
+import * as ttsManager from './ttsManager.js'; 
+
 (function() {
-  window.chatUtils = {};
+    window.chatUtils = {};
 
-  let badWordsData = [];
-  window.chatUtils.badWordsData = badWordsData;
+    let badWordsData = [];
+    window.chatUtils.badWordsData = badWordsData;
 
-  fetch('en.json')
-    .then(function(response) {
-      return response.json();
-    })
-    .then(function(data) {
-      badWordsData = data;
-      window.chatUtils.badWordsData = badWordsData;
-    })
-    .catch(function(error) {
-      console.error('Error loading bad words data:', error);
-    });
-
-  // This function returns a simple censored text (all bad words replaced with asterisks)
-  window.chatUtils.censorBadWords = function(text) {
-    let censoredText = text;
-    if (window.ttsManager && window.ttsManager.getTTSState().filterEnabled) {
-      badWordsData.forEach(function(category) {
-        category.dictionary.forEach(function(entry) {
-          const matches = entry.match.split('|');
-          matches.forEach(function(match) {
-            const regex = new RegExp(`\\b${match}\\b`, 'gi');
-            censoredText = censoredText.replace(regex, '*'.repeat(match.length));
-          });
-        });
-      });
-    }
-    return censoredText;
-  };
-
-  // New function to return HTML with censored words wrapped in a tooltip.
-  window.chatUtils.censorBadWordsHtml = function(text) {
-    if (!(window.ttsManager && window.ttsManager.getTTSState().filterEnabled)) {
-      // If filtering is not enabled, return text as is (escaped)
-      // Here we assume text is safe or already escaped.
-      return text;
-    }
-    let result = text;
-    badWordsData.forEach(function(category) {
-      category.dictionary.forEach(function(entry) {
-        const words = entry.match.split('|');
-        words.forEach(function(word) {
-          // Use capturing group so we can get the actual match word even with different case.
-          const regex = new RegExp(`\\b(${word})\\b`, 'gi');
-          result = result.replace(regex, function(match) {
-            return `<span class="censored-word" title="${match}">${'*'.repeat(match.length)}</span>`;
-          });
-        });
-      });
-    });
-    return result;
-  };
-
-  window.chatUtils.splitMessageIntoChunks = function(text, maxLength = 180) {
-    if (/https?:\/\/[^\s]+/.test(text)) {
-      const parts = text.split(/https?:\/\/[^\s]+/);
-      const nonUrlText = parts.join(' ').trim();
-      return nonUrlText ? window.chatUtils.splitMessageIntoChunks(nonUrlText) : [];
-    }
-    let ttsText = text;
-    if (window.ttsManager && window.ttsManager.getTTSState().filterEnabled) {
-      badWordsData.forEach(function(category) {
-        category.dictionary.forEach(function(entry) {
-          const matches = entry.match.split('|');
-          matches.forEach(function(match) {
-            const regex = new RegExp(`\\b${match}\\b`, 'gi');
-            ttsText = ttsText.replace(regex, ' ');
-          });
-        });
-      });
-    }
-    const punctuationSplit = ttsText.split(/([.!?]+\s+)/g);
-    const chunks = [];
-    let currentChunk = '';
-    punctuationSplit.forEach(function(segment) {
-      if ((currentChunk + segment).length <= maxLength) {
-        currentChunk += segment;
-      } else {
-        if (currentChunk) chunks.push([currentChunk.trim(), window.chatUtils.censorBadWords(currentChunk.trim())]);
-        if (segment.length > maxLength) {
-          const words = segment.split(/\s+/);
-          currentChunk = '';
-          words.forEach(function(word) {
-            if ((currentChunk + ' ' + word).length <= maxLength) {
-              currentChunk += (currentChunk ? ' ' : '') + word;
-            } else {
-              if (currentChunk) chunks.push([currentChunk.trim(), window.chatUtils.censorBadWords(currentChunk.trim())]);
-              currentChunk = word;
+    fetch('en.json')
+        .then(function(response) {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
             }
-          });
-        } else {
-          currentChunk = segment;
+            return response.json();
+        })
+        .then(function(data) {
+            if (Array.isArray(data)) {
+                 badWordsData = data;
+                 window.chatUtils.badWordsData = badWordsData;
+                 console.log("Bad words filter list loaded.");
+            } else {
+                 console.error('Loaded bad words data is not an array:', data);
+                 badWordsData = []; 
+                 window.chatUtils.badWordsData = badWordsData;
+            }
+        })
+        .catch(function(error) {
+            console.error('Error loading or parsing bad words data (en.json):', error);
+             badWordsData = []; 
+             window.chatUtils.badWordsData = badWordsData;
+        });
+
+    window.chatUtils.censorBadWordsForTTS = function(text) {
+        let censoredText = text;
+        if (ttsManager.getTTSState().filterEnabled && badWordsData.length > 0) {
+            badWordsData.forEach(function(category) {
+                if (category && Array.isArray(category.dictionary)) {
+                    category.dictionary.forEach(function(entry) {
+                        if (entry && typeof entry.match === 'string') {
+                            const matches = entry.match.split('|');
+                            matches.forEach(function(match) {
+                                if (match) { 
+                                    try {
+                                         const regex = new RegExp(`\\b${match.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}\\b`, 'gi'); 
+                                         censoredText = censoredText.replace(regex, ' '); 
+                                    } catch (e) {
+                                         console.warn(`Could not create regex for bad word: ${match}`, e);
+                                    }
+                                }
+                            });
+                        }
+                    });
+                }
+            });
         }
-      }
-    });
-    if (currentChunk) chunks.push([currentChunk.trim(), window.chatUtils.censorBadWords(currentChunk.trim())]);
-    return chunks.filter(function(chunk) {
-      return chunk[0].length > 0;
-    });
-  };
+        return censoredText;
+    };
 
-  window.chatUtils.createLinkElement = function(url, metadata) {
-    const link = document.createElement('a');
-    link.href = url;
-    link.target = '_blank';
-    link.textContent = url;
-    link.style.color = '#6441A4';
-    link.style.textDecoration = 'none';
-    
-    const container = document.createElement('span');
-    container.appendChild(link);
-    
-    if (metadata) {
-      const metadataSpan = document.createElement('span');
-      metadataSpan.textContent = ` (${metadata})`;
-      metadataSpan.style.color = '#666';
-      container.appendChild(metadataSpan);
-    }
-    return container;
-  };
+    window.chatUtils.censorBadWordsHtml = function(text) {
+        if (!ttsManager.getTTSState().filterEnabled || badWordsData.length === 0) {
+            return text.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
 
-  window.chatUtils.isMusicServiceUrl = function(url) {
-    return url.match(/youtube\.com|youtu\.be|spotify\.com|soundcloud\.com/i);
-  };
+        let resultHtml = text;
+        badWordsData.forEach(function(category) {
+             if (category && Array.isArray(category.dictionary)) {
+                category.dictionary.forEach(function(entry) {
+                     if (entry && typeof entry.match === 'string') {
+                        const words = entry.match.split('|');
+                        words.forEach(function(word) {
+                            if (word) {
+                                try {
+                                    const escapedWord = word.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+                                    const regex = new RegExp(`\\b(${escapedWord})\\b`, 'gi');
+                                    resultHtml = resultHtml.replace(regex, function(match) {
+                                        const escapedMatch = match.replace(/"/g, '&quot;');
+                                        return `<span class="censored-word" title="${escapedMatch}">${'*'.repeat(match.length)}</span>`;
+                                    });
+                                } catch (e) {
+                                     console.warn(`Could not create regex for bad word: ${word}`, e);
+                                }
+                            }
+                        });
+                     }
+                });
+            }
+        });
+        return resultHtml;
+    };
 
-  window.chatUtils.getMediaInfo = async function(url) {
-    return null;
-  };
+    window.chatUtils.splitMessageIntoChunks = function(text, maxLength = 180) {
+        if (/^https?:\/\/[^\s]+$/.test(text.trim())) {
+             return []; 
+         }
+         let textWithoutUrls = text.replace(/https?:\/\/[^\s]+/g, ' ').trim();
+
+         if (!textWithoutUrls) {
+             return []; 
+         }
+
+        const ttsCensoredText = window.chatUtils.censorBadWordsForTTS(textWithoutUrls);
+
+        const sentenceEnders = /[.!?]+(?=\s+|$)/g;
+        const potentialSentences = ttsCensoredText.split(sentenceEnders);
+        const chunks = [];
+        let currentChunk = '';
+
+        potentialSentences.forEach(segment => {
+            segment = segment.trim();
+            if (!segment) return;
+
+            if (segment.length > maxLength) {
+                const words = segment.split(/\s+/);
+                let segmentChunk = '';
+                words.forEach(word => {
+                    if ((segmentChunk + ' ' + word).length <= maxLength) {
+                        segmentChunk += (segmentChunk ? ' ' : '') + word;
+                    } else {
+                         if (segmentChunk) chunks.push([segmentChunk.trim(), segmentChunk.trim()]); 
+                        segmentChunk = word; 
+                    }
+                });
+                 if (segmentChunk) chunks.push([segmentChunk.trim(), segmentChunk.trim()]); 
+            }
+            else if ((currentChunk + ' ' + segment).length <= maxLength) {
+                currentChunk += (currentChunk ? ' ' : '') + segment;
+            }
+            else {
+                 if (currentChunk) chunks.push([currentChunk.trim(), currentChunk.trim()]);
+                currentChunk = segment; 
+            }
+        });
+
+        if (currentChunk) chunks.push([currentChunk.trim(), currentChunk.trim()]);
+
+        return chunks.filter(chunk => chunk[0].length > 0);
+    };
+
+    window.chatUtils.createLinkElement = function(url, metadata) {
+        const link = document.createElement('a');
+        link.href = url;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer'; 
+        link.textContent = url; 
+        link.style.color = '#6441A4'; 
+        link.style.textDecoration = 'underline'; 
+        link.style.wordBreak = 'break-all'; 
+
+        const container = document.createElement('span'); 
+        container.appendChild(link);
+
+        if (metadata) {
+            const metadataSpan = document.createElement('span');
+            metadataSpan.textContent = ` (${metadata})`;
+            metadataSpan.style.color = '#666';
+            metadataSpan.style.fontSize = '0.9em';
+            container.appendChild(metadataSpan);
+        }
+        return container;
+    };
+
+    window.chatUtils.isMusicServiceUrl = function(url) {
+        return /\b(youtube\.com|youtu\.be|spotify\.com|soundcloud\.com)\b/i.test(url);
+    };
+
+    window.chatUtils.getMediaInfo = async function(url) {
+        return null; 
+    };
 })();
